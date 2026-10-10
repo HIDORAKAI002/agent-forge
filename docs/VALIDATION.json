@@ -1,0 +1,37 @@
+{
+  "version": "0.2.0",
+  "interface": "terminal-native Textual TUI; no Electron or browser runtime",
+  "tests": {
+    "passed": 21,
+    "failed": 0,
+    "command": "python -m pytest -q",
+    "python": "3.13",
+    "platform": "Linux"
+  },
+  "real_cli_byte_tests": "passed twice independently, then again in full suite; real forge command in outer PTY with nested shell input and confirmation",
+  "verified": [
+    "real controlling PTYs and terminal resize",
+    "parallel local fixture agents in separate Git worktrees",
+    "persistent memory and concurrent writers",
+    "durable agent mail",
+    "two actual stdio MCP clients",
+    "guided task editing and review gates",
+    "terminal themes and compact layout"
+  ],
+  "visual_inspection": "nine actual TUI screen states inspected; compact overflow corrected",
+  "provider_models_used": false,
+  "not_yet_verified": [
+    "actual installed Claude/Codex/Gemini/Kimi CLI compatibility",
+    "macOS real-device behavior"
+  ],
+  "not_implemented": [
+    "voice transcription",
+    "Ruflo modules",
+    "natural-language supervisor planning",
+    "automatic cost/model dispatch",
+    "enforced spend budgets",
+    "native Windows ConPTY",
+    "OS security sandbox"
+  ],
+  "source_scope": "original terminal-native source; no earlier Electron files or third-party integration source vendored"
+}
