@@ -6,7 +6,7 @@
 
 ![Terminal-native workspace](docs/screenshots/01-workspace.svg)
 
-> v0.2 development foundation. The interface and local coordination are implemented. Real provider CLI compatibility, voice input, automatic supervisor planning and enforced cost routing are still being built. Screenshots use labeled demo records; the embedded shell is a real local PTY, not a simulated model session.
+> v0.3 development foundation. Local Ollama model selection, streaming pulls, preload and first-run onboarding are implemented. The interface and local coordination are implemented. Real provider CLI compatibility, voice input, automatic supervisor planning and enforced cost routing are still being built. Screenshots use labeled demo records; the embedded shell is a real local PTY, not a simulated model session.
 
 ## Start
 
@@ -31,6 +31,7 @@ Already inside a project? `forge` uses the current directory. `forge --project /
 - **Agents:** real CLI terminal surfaces; select a session and type directly. `Ctrl+C` reaches the focused CLI.
 - **Missions:** guided task editor, a dependency-aware ledger, isolated Git worktrees, and explicit launch/review confirmations.
 - **Memory:** project facts, decisions, and handoffs with author/time/trust provenance.
+- **Models (F6):** local Ollama library/installed-tag selection, actual streamed download layer %, model activation, RAM/VRAM residency and a persistent first-run guide.
 - **Mail:** durable project-local inboxes with explicit acknowledgment.
 - **Live status:** actual session/task/memory counts. Unknown quota/cost is labeled unknown, not invented.
 - **Keyboard-first:** slash commands, command history, engine/session pickers, F-key tabs, and `Ctrl+Space` back to the composer.
@@ -56,10 +57,44 @@ An agent exit code of zero means **needs-review**, not “correct.” Inspect th
 
 Automated task argument templates currently exist for Claude (`-p`), Codex (`exec`), and Gemini (`-p`). They are version-sensitive and need actual-provider validation. Other built-in CLIs are interactive-only until their automation interface is verified. No permission-bypass flags are added.
 
+## Ollama / local operator
+
+The first launch automatically opens **Models** with a project-local tutorial. Press **F6** or `/models` anytime. `/tutorial` reopens the guide; **Finish / skip tutorial** hides it without installing anything.
+
+1. **Install Ollama** using the visible platform instructions. Linux / WSL:
+   ```bash
+   curl -fsSL https://ollama.com/install.sh | sh
+   ```
+   Review the installer before running it. macOS: use the official installer at https://ollama.com/download. **Setup shell** opens a real shell but never types or executes an installer. No fictional installation percentage is shown.
+2. **Start server** launches the installed `ollama serve` inside a real embedded terminal, bound to the configured loopback endpoint. If Ollama already runs as a service, just **Refresh**.
+3. **Choose a tag**, e.g. `qwen2.5-coder:1.5b`, `qwen2.5-coder:3b`, or `qwen2.5-coder:7b`; any valid local tag works. Enter on an installed table row copies its tag into the selector. Model size comes from the server, not an invented RAM guarantee.
+4. **Pull + use** asks permission for the network/download and RAM load. Forge streams `/api/pull`, verifies the model appears in the local inventory, preloads it and verifies `/api/ps` before saving the selected operator. **Use installed** skips the download.
+5. **Open chat** embeds the actual `ollama run MODEL` process. This is a local conversation, **not an autonomous coding harness**: selecting a model does not grant file-editing tools or enable supervisor planning.
+
+The chosen operator persists in `.agent-forge/ollama.json`. Once explicitly activated, an installed selection preloads automatically on project reopen when the local Ollama server is reachable. Start the server through the guide if it is not already running. A missing selection is **never auto-downloaded**. **Unload** sets keep-alive to zero and turns off automatic activation, preserving the selection. Server keep-alive after activation is five minutes; Ollama may evict models sooner under memory pressure. Auto-activation happens on reopen, not continuous GPU pinning.
+
+### Honest progress and resource meters
+
+- The percentage and bar are **current-layer bytes completed / layer total**, not a fabricated whole-model percentage. Known-layer bytes are summed separately; new layers can increase the known denominator.
+- Manifest lookup, integrity verification, installer execution and RAM loading have **no measurable percentage** and are labeled indeterminate. A layer reaching 100% does not mean activation is complete.
+- Host RAM percentage/free GB is actual `psutil` data. Project-filesystem free space is labeled separately and is not assumed to be Ollama's model-storage disk.
+- Loaded model bytes and VRAM bytes come from `/api/ps`. **GPU residency %** means `size_vram / size`, not GPU compute utilization or a GPU memory-capacity percentage.
+- Cancel stops local stream consumption and prevents committing a new selection. An accepted Ollama server operation may finish independently; inspect server status. Cancelling does not promise to reclaim cached blobs.
+
+`OLLAMA_HOST` defaults to `http://127.0.0.1:11434`. Only loopback HTTP endpoints (`localhost`, `127.0.0.1`, `::1`) are accepted. API requests bypass environment proxies and refuse redirects. Models with remote/cloud metadata and explicit cloud tags are excluded. Downloading still contacts Ollama's registry; **local generation is not offline installation**. Ollama and its model licenses are separate from this repository.
+
+Official references: [Linux setup](https://docs.ollama.com/linux), [streamed pull](https://docs.ollama.com/api/pull), [installed inventory](https://docs.ollama.com/api/tags), [loaded models](https://docs.ollama.com/api/ps), [preload / unload](https://docs.ollama.com/api/generate), [Qwen2.5-Coder tags](https://ollama.com/library/qwen2.5-coder).
+
+![Ollama terminal model hub — HTTP test fixture, not a real inference run](docs/screenshots/10-ollama-hub.svg)
+
 ## Command deck
 
 | Command / key | Action |
 |---|---|
+| `/models`, F6 | Local model hub |
+| `/tutorial` | Reopen first-run guide |
+| `/ollama pull MODEL`, `/ollama use MODEL` | Confirm download or installed activation |
+| `/ollama refresh`, `chat`, `serve`, `setup`, `unload`, `cancel` | Ollama lifecycle controls |
 | `/launch ENGINE` | Embed a real CLI |
 | `/focus SESSION_ID` | Return to a session; IDs accept unique prefixes |
 | `/sessions`, `/engines` | Inspect sessions or configured harnesses |
@@ -88,6 +123,7 @@ project/.agent-forge/
   state.sqlite           # canonical memory, task/mail/event ledger
   memory.md              # generated readable summary, latest 500 records
   workspace.lock         # one active TUI owns a project
+  ollama.json            # selected local operator, auto-activation, tutorial state
   profiles.json          # optional custom CLI/model profiles
   worktrees/<task-id>/    # preserved task workspaces
 ```
@@ -155,7 +191,7 @@ This is a schema example: `my-worker` must actually exist and implement the argu
 - Only use trusted projects and CLIs. A custom executable/profile is executable code, not a safe document.
 - Terminal output is rendered through a VT emulator, not written directly into the parent terminal; OSC clipboard/link escape sequences are not executed by the renderer. Full modern terminal protocol coverage is not guaranteed.
 - Cursor movement, truecolor/ANSI styles, resize, UTF-8 input, standard control/navigation keys, bracketed paste and primary/alternate screen handling are implemented. Advanced mouse reporting, Kitty graphics/keyboard extensions, sixel, native ConPTY and advanced scrollback navigation are not implemented.
-- Ctrl+Q, F1–F5 and Ctrl+Space are reserved by the host. They are not passed through to a focused CLI. Avoid putting secrets into command history, tasks, mail, memory or screenshots.
+- Ctrl+Q, F1–F6 and Ctrl+Space are reserved by the host. They are not passed through to a focused CLI. Avoid putting secrets into command history, tasks, mail, memory or screenshots.
 - A dedicated, single-threaded PTY broker avoids forkpty from the multi-threaded TUI. Stop terminates known descendants and escalates if necessary. Malicious or independently detached processes can escape lifecycle tracking; this is not a security boundary.
 - Memory, tasks and mail persist locally; live terminal sessions do not resume after app restart. Interrupted tasks are marked failed and never rerun automatically. Existing worktrees are preserved for manual inspection.
 - The Markdown file is a derived projection. A crash can make it temporarily stale; SQLite remains authoritative and reopening regenerates it. Symlink checks at managed entry points do not eliminate local filesystem races.
@@ -166,9 +202,14 @@ This is a schema example: `my-worker` must actually exist and implement the argu
 pip install -e '.[mcp,test]'
 python -m pytest -q
 python scripts/capture_tui.py
+python scripts/capture_ollama.py
 ```
 
+**v0.3 validation: 44 tests passed on Linux / Python 3.13**, including the original terminal/memory/MCP regressions and Ollama fixtures. Six new actual TUI states were visually inspected, including a compact 100×36 model hub.
+
 The tests cover persistent memory, concurrent writers, dependencies, mail acknowledgment, project ownership, real Linux PTY input/controlling TTY, resize, cancellation, parallel **fixture** agents in worktrees, alternate screens, explicit routing policy, guided TUI editing, keyboard focus, compact layout, and **two actual stdio MCP clients**.
+
+Ollama tests use a real loopback HTTP fixture server with streamed NDJSON, error/EOF/cancellation cases, persisted activation, auto-resume, remote/cloud rejection and TUI confirmations. No real Ollama model was downloaded or inferred here.
 
 No provider account or real Claude/Codex/Gemini model was used in these tests. Those compatibility checks are the next milestone. `requirements-lock.txt` records the tested environment; the editable project itself is installed separately. The capture script exports nine actual Textual screen states; a local shell is real, while demo memory/task/mail records are explicitly labeled.
 

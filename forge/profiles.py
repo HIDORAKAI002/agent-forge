@@ -58,6 +58,10 @@ def profiles(project: Path) -> dict[str, Profile]:
             if tier not in {"strong", "economy", "local", "unknown"}:
                 raise ValueError("Tier: strong, economy, local or unknown")
             result[item["id"]] = Profile(item["id"], item.get("label", item["id"])[:100], tuple(item["argv"]), tuple(item["task_argv"]) if item.get("task_argv") else None, tier)
+    from .ollama import read_settings
+    selected = read_settings(project / ".agent-forge").get("selected_model")
+    if selected:
+        result["ollama"] = Profile("ollama", "Ollama / " + selected, ("ollama", "run", selected), tier="local")
     return result
 
 

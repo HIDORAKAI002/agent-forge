@@ -14,7 +14,7 @@ from .terminal import Session
 class Runtime:
     def __init__(self, project: str | Path):
         if os.name == "nt":
-            raise ValueError("Use WSL for v0.2; native Windows PTY support is still pending")
+            raise ValueError("Use WSL for v0.3; native Windows PTY support is still pending")
         self.store = Store(project)
         # Only the TUI owns recovery. Independent memory/MCP clients never reset live tasks.
         import fcntl
@@ -31,12 +31,14 @@ class Runtime:
             if task["status"] == "running":
                 self.store.update_task(task["id"], status="failed", note="Workspace interrupted. Inspect the preserved worktree; nothing reruns automatically.")
 
-    def launch(self, engine: str, *, cwd: Path | None = None, prompt: str | None = None, task_id: str | None = None) -> Session:
+    def launch(self, engine: str, *, cwd: Path | None = None, prompt: str | None = None, task_id: str | None = None, env_overrides: dict | None = None) -> Session:
         if sum(s.status == "running" for s in self.sessions.values()) >= 12:
             raise ValueError("Limit reached: 12 active sessions")
         if engine not in self.profiles:
             raise ValueError("Unknown engine. /engines lists installed and configurable profiles")
         env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", FORGE_PROJECT=str(self.store.project))
+        if env_overrides:
+            env.update(env_overrides)
         session = Session(self.profiles[engine].command(prompt), str(cwd or self.store.project), engine, task_id=task_id, env=env)
         self.sessions[session.id] = session
         return session

@@ -18,6 +18,23 @@ class ForgeScreen(pyte.HistoryScreen):
         self.primary = None
         super().__init__(columns, lines, history=1000)
 
+    def resize(self, lines=None, columns=None):
+        # pyte's default shrink always removes TOP rows, even when only blank
+        # bottom rows need removal. That can erase fast CLI startup output
+        # before Textual finishes laying out a newly revealed terminal pane.
+        if lines is not None and lines < self.lines and self.cursor.y < lines:
+            bottom_blank = all(not any(c.data.strip() for c in self.buffer[y].values()) for y in range(lines, self.lines))
+            if bottom_blank:
+                for y in list(self.buffer):
+                    if y >= lines:
+                        del self.buffer[y]
+                self.lines = lines
+                self.dirty.update(range(lines))
+                self.set_margins()
+        super().resize(lines=lines, columns=columns)
+        self.cursor.y = min(self.cursor.y, self.lines - 1)
+        self.cursor.x = min(self.cursor.x, self.columns - 1)
+
     def set_mode(self, *modes, **kwargs):
         if kwargs.get("private") and any(mode in (47, 1047, 1049) for mode in modes):
             if self.primary is None:

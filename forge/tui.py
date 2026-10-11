@@ -11,16 +11,21 @@ from rich.style import Style
 from textual import on, events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.suggester import SuggestFromList
 from textual.widgets import Button, DataTable, Footer, Input, Label, OptionList, RichLog, Select, Static, TabbedContent, TabPane, TextArea
 from textual.widgets.option_list import Option
 from .runtime import Runtime
 from .terminal import Session
-from .profiles import recommend
+from .profiles import recommend, Profile
+from .ollama import OllamaHub, model_name, bytes_text
+import shutil
+import platform
+import time
+import psutil
 
-COMMANDS = ["/help", "/launch", "/sessions", "/focus", "/stop", "/task", "/tasks", "/run", "/approve", "/remember", "/memory", "/send", "/inbox", "/ack", "/engines", "/route", "/theme", "/quit"]
+COMMANDS = ["/models", "/tutorial", "/ollama", "/help", "/launch", "/sessions", "/focus", "/stop", "/task", "/tasks", "/run", "/approve", "/remember", "/memory", "/send", "/inbox", "/ack", "/engines", "/route", "/theme", "/quit"]
 PALETTES = {"nebula": ("#65d7ff", "#b299ff", "#0a101e"), "ember": ("#ffbd73", "#fb86a5", "#160f13")}
 KEY_BYTES = {"enter":"\r", "tab":"\t", "shift+tab":"\x1b[Z", "backspace":"\x7f", "escape":"\x1b", "up":"\x1b[A", "down":"\x1b[B", "right":"\x1b[C", "left":"\x1b[D", "home":"\x1b[H", "end":"\x1b[F", "delete":"\x1b[3~", "insert":"\x1b[2~", "pageup":"\x1b[5~", "pagedown":"\x1b[6~"}
 ANSI_COLORS = {"default":"#d9e4f4", "black":"#172236", "red":"#f37e91", "green":"#78ddae", "brown":"#f2ca7c", "blue":"#75a7ff", "magenta":"#c3a0ff", "cyan":"#75dcf0", "white":"#e4edfa", "brightblack":"#788aa5", "brightred":"#ff95a7", "brightgreen":"#9bf6c6", "brightbrown":"#ffe49b", "brightblue":"#a3c4ff", "brightmagenta":"#d7b5ff", "brightcyan":"#9df1ff", "brightwhite":"#ffffff"}
@@ -48,7 +53,7 @@ class TerminalSurface(Static):
         self.focus()
 
     def resize_child(self):
-        if self.session and self.content_size.width > 1:
+        if self.session and self.content_size.width > 1 and self.content_size.height > 1:
             self.session.resize(self.content_size.height, self.content_size.width)
 
     def on_resize(self, _: events.Resize):
@@ -225,6 +230,15 @@ class ForgeApp(App):
     #toolbar Static { width: 1fr; padding: 1 1; color: #8497b5; }
     #command { height: 3; margin: 0 1; border: tall #5a5382; background: #101c2f; }
     #command:focus { border: tall #65d7ff; }
+    #models-scroll { height: 1fr; padding: 0 1; }
+    #model-status { height: auto; min-height: 3; padding: 1; background: #142139; color: #91e3ff; }
+    #model-tutorial { height: auto; padding: 1; border-left: heavy #b299ff; color: #c4d2e8; }
+    #model-tag, #model-preset { height: 3; }
+    .model-actions { height: 3; }
+    .model-actions Button { min-width: 10; margin-right: 1; }
+    #model-progress { height: auto; min-height: 3; padding: 0 1; color: #78ddae; }
+    #model-table { height: 7; border: round #78688f; }
+    #model-hardware, #model-commands { height: auto; padding: 1; color: #b9cce6; }
     Footer { background: #182238; color: #b9cce6; }
     ConfirmScreen, TaskScreen { align: center middle; background: #060912 80%; }
     .dialog { width: 76; height: auto; max-height: 95%; border: heavy #b299ff; padding: 1 2; background: #142139; }
@@ -238,6 +252,7 @@ class ForgeApp(App):
     .task-selectors Select { width: 1fr; }
     .muted { color: #8fa2c1; }
     .compact #rail { width: 23; }
+    .compact #model-status, .compact #model-tutorial { padding: 0 1; }
     .compact #policy { display: none; }
     .compact #masthead { height: 4; }
     .compact .rail-title { height: 1; margin-top: 0; }
@@ -246,7 +261,7 @@ class ForgeApp(App):
     .compact #sessions { min-height: 4; }
     .compact #toolbar-hint { display: none; }
     """
-    BINDINGS = [Binding("ctrl+space", "composer", "Command", priority=True), Binding("ctrl+@", "composer", show=False, priority=True), Binding("ctrl+at", "composer", show=False, priority=True), Binding("f1", "help", "Help", priority=True), Binding("f2", "tab('workbench')", "Agents", priority=True), Binding("f3", "tab('missions')", "Tasks", priority=True), Binding("f4", "tab('memory')", "Memory", priority=True), Binding("f5", "tab('mail')", "Mail", priority=True), Binding("ctrl+q", "request_quit", "Quit", priority=True)]
+    BINDINGS = [Binding("f6", "tab('models')", "Models", priority=True), Binding("ctrl+space", "composer", "Command", priority=True), Binding("ctrl+@", "composer", show=False, priority=True), Binding("ctrl+at", "composer", show=False, priority=True), Binding("f1", "help", "Help", priority=True), Binding("f2", "tab('workbench')", "Agents", priority=True), Binding("f3", "tab('missions')", "Tasks", priority=True), Binding("f4", "tab('memory')", "Memory", priority=True), Binding("f5", "tab('mail')", "Mail", priority=True), Binding("ctrl+q", "request_quit", "Quit", priority=True)]
 
     def __init__(self, project: str | Path):
         super().__init__()
@@ -257,6 +272,12 @@ class ForgeApp(App):
         self.mail_recipient = "supervisor"
         self.cache: dict[str, str] = {}
         self._forge_closing = False
+        try:
+            self.ollama = OllamaHub(self.runtime.store.directory)
+        except Exception:
+            self.runtime.close()
+            raise
+        self._ollama_refresh = 0.0
 
     def compose(self) -> ComposeResult:
         yield Static(id="masthead")
@@ -285,6 +306,27 @@ class ForgeApp(App):
                     with TabPane("↔ Mail", id="mail"):
                         yield Static("Project-local agent inbox. /inbox <name> · /send <from> <to> <text> · /ack <id> <recipient>", classes="tab-note")
                         yield DataTable(id="mail-table", cursor_type="row")
+                    with TabPane("◉ Models", id="models"):
+                        with VerticalScroll(id="models-scroll"):
+                            yield Static(id="model-status", markup=False)
+                            yield Static(id="model-tutorial", markup=False)
+                            yield Select([("Qwen2.5-Coder · 1.5B", "qwen2.5-coder:1.5b"), ("Qwen2.5-Coder · 3B", "qwen2.5-coder:3b"), ("Qwen2.5-Coder · 7B", "qwen2.5-coder:7b")], prompt="Model suggestions · or enter any local tag below", id="model-preset")
+                            yield Input(value="qwen2.5-coder:3b", placeholder="Local model tag (any installed or library model)", id="model-tag")
+                            with Horizontal(classes="model-actions"):
+                                yield Button("Refresh", id="model-refresh")
+                                yield Button("Pull + use", id="model-pull", variant="primary")
+                                yield Button("Use installed", id="model-use")
+                                yield Button("Cancel", id="model-cancel")
+                            yield Static(id="model-progress", markup=False)
+                            yield DataTable(id="model-table", cursor_type="row")
+                            with Horizontal(classes="model-actions"):
+                                yield Button("Open chat", id="model-chat", variant="primary")
+                                yield Button("Start server", id="model-serve")
+                                yield Button("Setup shell", id="model-setup")
+                                yield Button("Unload", id="model-unload")
+                            yield Static(id="model-hardware", markup=False)
+                            yield Static(id="model-commands", markup=False)
+                            yield Button("Finish / skip tutorial", id="model-tutorial-done")
                 yield Static(id="activity", markup=False)
         with Horizontal(id="toolbar"):
             yield Button("+ New task", id="new-task", variant="primary")
@@ -297,6 +339,7 @@ class ForgeApp(App):
 
     def exit(self, *args, **kwargs):
         self._forge_closing = True
+        self.ollama.close()
         if hasattr(self, "_pump_timer"):
             self._pump_timer.stop()
         return super().exit(*args, **kwargs)
@@ -308,16 +351,14 @@ class ForgeApp(App):
         self.workspace_screen = self.screen
         for selector in ("#terminal-view", "#terminal-meta"):
             self.ui(selector).display = False
-        engines = self.ui("#engines", OptionList)
-        for profile in self.runtime.profiles.values():
-            label = Text("● " if profile.available else "○ ", style="#78ddae" if profile.available else "#62758f")
-            label.append(profile.label, style="#d9e4f4" if profile.available else "#73849f")
-            engines.add_option(Option(label, id=profile.id, disabled=not profile.available))
+        self.refresh_engines()
         self.ui("#engines").border_title = "Enter to launch"
         self.ui("#sessions").border_title = "Enter to focus"
         self.ui("#conversation").border_title = "Mission control"
         self.ui("#terminal-view").border_title = "Embedded PTY / native input"
         self.ui("#activity").border_title = "Event stream / local ledger"
+        self.ui("#model-table", DataTable).add_columns("Model", "Disk size", "Parameters", "Quant", "Loaded")
+        self.ui("#model-table").border_title = "Installed locally · Enter selects"
         self.ui("#task-table", DataTable).add_columns("ID", "Status", "Engine", "Mission")
         self.ui("#memory-table", DataTable).add_columns("Kind", "Trust", "Author", "Memory")
         self.ui("#mail-table", DataTable).add_columns("ID", "From", "To", "Message")
@@ -325,10 +366,14 @@ class ForgeApp(App):
         welcome.append("Real CLI processes live inside this terminal.\nShared memory and mail connect their work.\n\n", style="#c4d2e8")
         welcome.append("01  Launch a harness     /launch claude\n02  Give work an owner  /task\n03  Keep the context    /remember decision …\n04  Inspect & approve   /tasks", style="#b7a3eb")
         self.say(Panel(welcome, border_style="#685791", padding=(1, 2), title="░▒▓  LOCAL AGENT WORKSPACE  ▓▒░"))
-        self.say(Text("Native CLI permissions still apply. Worktrees isolate files, not OS access.\nVoice and automatic orchestration are not enabled in v0.2.", style="#e1bc7c"))
+        self.say(Text("Native CLI permissions still apply. Worktrees isolate files, not OS access.\nVoice and automatic orchestration are not enabled in v0.3. Local Ollama chat is available in Models (F6).", style="#e1bc7c"))
         self.refresh_state()
         self.action_composer()
         self._pump_timer = self.set_interval(0.08, self.pump)
+        self.ollama.start("refresh")
+        self._ollama_refresh = time.monotonic()
+        if not self.ollama.settings["tutorial_completed"]:
+            self.action_tab("models")
 
     def on_resize(self, event: events.Resize):
         self.set_class(event.size.width < 110, "compact")
@@ -341,6 +386,8 @@ class ForgeApp(App):
         self.say(Text(f"✕ {error}", style="#ff93a8"))
 
     def refresh_state(self):
+        self.refresh_engines()
+        self.refresh_models()
         store = self.runtime.store
         running = sum(s.status == "running" for s in self.runtime.sessions.values())
         tasks = store.tasks()
@@ -352,7 +399,7 @@ class ForgeApp(App):
         head.append("\n   " + "─" * max(10, min(self.size.width - 8, 150)), style="#344866")
         self.ui("#masthead", Static).update(head)
         metrics = Text(f" ◉ {running:02d} LIVE   │   ≡ {len(tasks):02d} TASKS   │   ◇ {len(store.memories(limit=500)):02d} MEMORIES   │   QUOTA / COST: unknown", style=a)
-        metrics.append(f"   │   {self.palette.upper()} / v0.2", style=b)
+        metrics.append(f"   │   {self.palette.upper()} / v0.3", style=b)
         self.ui("#metrics", Static).update(metrics)
         self.ui("#policy", Static).update(Text("ROUTING / POLICY\nUser-set cost tiers\n/run asks before launch\nNo automatic merges", style="#dac298"))
         session_signature = json.dumps([(s.id, s.engine, s.status) for s in self.runtime.sessions.values()])
@@ -383,11 +430,15 @@ class ForgeApp(App):
                 if table.row_count:
                     table.move_cursor(row=min(position, table.row_count - 1))
                 self.cache[identifier] = signature
-        self.ui("#activity", Static).update("\n".join(f"{e['created_at'][11:19]}  ┊  {e['kind']}" for e in store.events(3)) or "Ready. No model has been contacted. /launch or /task to begin.")
+        self.ui("#activity", Static).update("\n".join(f"{e['created_at'][11:19]}  ┊  {e['kind']}" for e in store.events(3)) or "Local ledger ready. Models status is shown in F6; /launch or /task to begin coding.")
 
     def pump(self):
         if self._forge_closing or not getattr(self, "workspace_screen", None) or not self.workspace_screen.is_mounted or not self.workspace_screen.query("#masthead"):
             return
+        self.ollama.poll()
+        if not self.ollama.busy and time.monotonic() - self._ollama_refresh > 10:
+            self.ollama.start("refresh")
+            self._ollama_refresh = time.monotonic()
         events = self.runtime.poll()
         if events:
             self.ui("#terminal-view").refresh()
@@ -396,6 +447,124 @@ class ForgeApp(App):
                 self.say(f"Session {identifier[:8]} exited ({value}). Task results require human review.")
         # State can change through independent CLI/MCP clients.
         self.refresh_state()
+
+    def on_unmount(self):
+        self.ollama.close()
+
+    def refresh_engines(self):
+        selected = self.ollama.settings.get("selected_model")
+        if selected:
+            self.runtime.profiles["ollama"] = Profile("ollama", "Ollama / " + selected, ("ollama", "run", selected), tier="local")
+        signature = [(p.id, p.label, p.available) for p in self.runtime.profiles.values()]
+        if self.cache.get("engines") == str(signature):
+            return
+        widget = self.ui("#engines", OptionList)
+        widget.clear_options()
+        for profile in self.runtime.profiles.values():
+            label = Text("● " if profile.available else "○ ", style="#78ddae" if profile.available else "#62758f")
+            label.append(profile.label, style="#d9e4f4" if profile.available else "#73849f")
+            widget.add_option(Option(label, id=profile.id, disabled=not profile.available))
+        self.cache["engines"] = str(signature)
+
+    def refresh_models(self):
+        hub = self.ollama
+        selected = hub.settings.get("selected_model") or "none selected"
+        installed = hub.inventory["installed"]
+        loaded = {m.get("name", m.get("model")): m for m in hub.inventory["loaded"]}
+        self.ui("#model-status", Static).update(f"LOCAL OPERATOR / {selected}  ·  {hub.state}\nServer: {hub.api.host} · Ollama {hub.inventory['version']} · CLI: {'on PATH' if shutil.which('ollama') else 'not installed'}\nAuto-activate on reopen: {'ON' if hub.settings['auto_activate'] else 'OFF'} · model chat ≠ a file-editing coding agent")
+        if self.size.width < 110:
+            cli = "ready" if shutil.which("ollama") else "missing"
+            self.ui("#model-status", Static).update(f"OPERATOR {selected} · {hub.state}\n{hub.api.host} · CLI {cli}\nAUTO {'ON' if hub.settings['auto_activate'] else 'OFF'} · CHAT ONLY; no coding tools")
+        tutorial = self.ui("#model-tutorial", Static)
+        tutorial.display = not hub.settings["tutorial_completed"]
+        tutorial.update("FIRST-RUN FLIGHT CHECK\n01 Install Ollama using the commands below; Setup shell never auto-runs an installer.\n02 Start server → Refresh.  03 Choose a model tag or select an installed row.\n04 Pull + use asks first, shows real layer %, then activates automatically.\n05 Open chat runs Ollama here. Scroll ↓ for commands / RAM meters; selection persists.")
+        if self.size.width < 110:
+            tutorial.update("TUTORIAL · Scroll ↓ for install commands + RAM/VRAM\n1 Install → Start server → Refresh → Choose tag.\n2 Pull + use → Confirm → Auto-activate → Open chat.")
+        self.ui("#model-progress", Static).update(hub.progress_text())
+        self.ui("#model-progress").styles.color = "#ff93a8" if hub.state.startswith("Error:") else "#78ddae"
+        signature = json.dumps([installed, list(loaded)])
+        if self.cache.get("model-table") != signature:
+            table = self.ui("#model-table", DataTable)
+            table.clear()
+            for item in installed:
+                name = item.get("name", item.get("model"))
+                detail = item.get("details", {})
+                table.add_row(Text(name), bytes_text(item.get("size", 0)), str(detail.get("parameter_size", "?")), str(detail.get("quantization_level", "?")), "YES" if name in loaded else "no", key=name)
+            self.cache["model-table"] = signature
+        vm = psutil.virtual_memory()
+        disk = psutil.disk_usage(self.runtime.store.project)
+        lines = [f"HOST RAM {vm.percent:.0f}% used · {vm.available/1e9:.1f}/{vm.total/1e9:.1f} GB available · project disk free {disk.free/1e9:.1f} GB"]
+        for name, item in loaded.items():
+            size, vram = item.get("size", 0), item.get("size_vram", 0)
+            ratio = f"{vram/size*100:.1f}%" if size else "unknown"
+            lines.append(f"{name}: loaded {bytes_text(size)} · VRAM {bytes_text(vram)} · GPU residency {ratio} (not utilization)")
+        if not loaded:
+            lines.append("Loaded model memory / GPU residency: unavailable until /api/ps reports a model.")
+        self.ui("#model-hardware", Static).update("\n".join(lines))
+        value = self.ui("#model-tag", Input).value.strip()
+        try:
+            value = model_name(value)
+        except ValueError:
+            value = "MODEL_TAG"
+        install = "Open https://ollama.com/download (macOS installer)" if platform.system() == "Darwin" else "curl -fsSL https://ollama.com/install.sh | sh  # Linux / WSL; review first"
+        self.ui("#model-commands", Static).update(f"SETUP / exact commands — no silent installs\n{install}\nOLLAMA_HOST={shlex.quote(hub.api.host)} ollama serve\nOLLAMA_HOST={shlex.quote(hub.api.host)} ollama pull {shlex.quote(value)}\nOLLAMA_HOST={shlex.quote(hub.api.host)} ollama run {shlex.quote(value)}\nDownload requires internet + disk. Generation uses the loopback server. Cloud models are excluded.\nLayer % is byte-based; manifest / verification / RAM loading are indeterminate.\nOllama chooses hardware automatically; keep-alive is 5 minutes, not permanent GPU allocation.")
+        for key in ("model-refresh", "model-pull", "model-use", "model-serve", "model-unload"):
+            self.ui("#" + key, Button).disabled = hub.busy
+        self.ui("#model-cancel", Button).disabled = not hub.busy
+        self.ui("#model-chat", Button).disabled = not (hub.online and selected in loaded and shutil.which("ollama"))
+
+    @on(Select.Changed, "#model-preset")
+    def model_preset(self, event: Select.Changed):
+        if event.value is not Select.BLANK:
+            self.ui("#model-tag", Input).value = str(event.value)
+            self.refresh_models()
+
+    @on(DataTable.RowSelected, "#model-table")
+    def select_model(self, event: DataTable.RowSelected):
+        self.ui("#model-tag", Input).value = str(event.row_key.value)
+        self.refresh_models()
+
+    def model_action(self, action):
+        hub = self.ollama
+        model = self.ui("#model-tag", Input).value.strip()
+        if action == "model-refresh":
+            hub.start("refresh")
+        elif action == "model-pull":
+            model = model_name(model)
+            self.push_screen(ConfirmScreen("PULL LOCAL MODEL / disk and network", f"Download {model} from Ollama's registry? Model sizes vary; this consumes network and model-storage disk space. After verified download, Forge will load it into RAM and save it as this project's operator. No installer, coding task or paid API is launched."), lambda approved: self.start_model("pull", model) if approved else None)
+        elif action == "model-use":
+            model = model_name(model)
+            self.push_screen(ConfirmScreen("ACTIVATE LOCAL MODEL", f"Load installed {model} into RAM/VRAM and remember it for automatic activation on project reopen? This does not download a model or grant it file-editing tools."), lambda approved: self.start_model("activate", model) if approved else None)
+        elif action == "model-cancel":
+            hub.cancel()
+        elif action == "model-unload":
+            selected = hub.settings.get("selected_model")
+            if not selected:
+                raise ValueError("No selected operator")
+            hub.start("unload", selected)
+        elif action == "model-chat":
+            selected = hub.settings.get("selected_model")
+            if not hub.online or not any(m.get("name", m.get("model")) == selected for m in hub.inventory["loaded"]):
+                raise ValueError("Activate an installed local model first")
+            self.refresh_engines()
+            self.focus_session(self.runtime.launch("ollama", env_overrides={"OLLAMA_HOST": hub.api.host}))
+        elif action == "model-serve":
+            self.runtime.profiles["ollama-server"] = Profile("ollama-server", "Ollama server", ("ollama", "serve"), tier="local")
+            self.focus_session(self.runtime.launch("ollama-server", env_overrides={"OLLAMA_HOST": hub.api.host}))
+        elif action == "model-setup":
+            self.focus_session(self.runtime.launch("shell"))
+            self.say("Review the official install command in Models; nothing was executed automatically.")
+            # Show setup commands but never write an installer into a live shell or press Enter.
+        elif action == "model-tutorial-done":
+            hub.settings["tutorial_completed"] = True
+            hub.save()
+        self.refresh_models()
+
+    def start_model(self, operation, model):
+        try:
+            self.ollama.start(operation, model)
+        except Exception as error:
+            self.error(error)
 
     def focus_session(self, session: Session):
         self.active = session.id
@@ -423,7 +592,7 @@ class ForgeApp(App):
         table = Table(title="COMMAND DECK", border_style="#685791")
         table.add_column("Command", style="#65d7ff")
         table.add_column("Action", style="#c4d2e8")
-        for command, description in [("/launch <engine>", "Embed a real CLI; no API simulation"), ("/focus <session-id>", "Return to a terminal; Ctrl+C goes to the CLI"), ("/task", "Guided task editor; does not launch work"), ("/task <engine> <title> :: <prompt>", "Create a queued task"), ("/run <task-id>", "Confirm isolated task execution"), ("/approve <task-id>", "Record human review; no merge"), ("/remember <fact|decision|handoff> <text>", "Save human-verified project context"), ("/memory [search]", "Inspect/filter persistent memory"), ("/send <from> <to> <text>", "Send project-local agent mail"), ("/inbox <name> /ack <id> <recipient>", "Read or acknowledge durable mail"), ("/route <routine|high>", "Recommend a user-configured tier; never dispatch"), ("/theme <nebula|ember>", "Switch accent and terminal surface"), ("/stop <session-id>", "Confirm process-group termination"), ("/quit", "Confirm stopping running sessions and exit")]:
+        for command, description in [("/models · /tutorial", "Local Ollama selection, live layer % and setup guide"), ("/ollama pull|use <model>", "Confirm download; preload and persist local operator"), ("/launch <engine>", "Embed a real CLI; no API simulation"), ("/focus <session-id>", "Return to a terminal; Ctrl+C goes to the CLI"), ("/task", "Guided task editor; does not launch work"), ("/task <engine> <title> :: <prompt>", "Create a queued task"), ("/run <task-id>", "Confirm isolated task execution"), ("/approve <task-id>", "Record human review; no merge"), ("/remember <fact|decision|handoff> <text>", "Save human-verified project context"), ("/memory [search]", "Inspect/filter persistent memory"), ("/send <from> <to> <text>", "Send project-local agent mail"), ("/inbox <name> /ack <id> <recipient>", "Read or acknowledge durable mail"), ("/route <routine|high>", "Recommend a user-configured tier; never dispatch"), ("/theme <nebula|ember>", "Switch accent and terminal surface"), ("/stop <session-id>", "Confirm process-group termination"), ("/quit", "Confirm stopping running sessions and exit")]:
             table.add_row(command, description)
         self.say(table)
         self.action_composer()
@@ -460,7 +629,12 @@ class ForgeApp(App):
 
     @on(Button.Pressed)
     def toolbar(self, event: Button.Pressed):
-        if event.button.id == "new-task":
+        if event.button.id and event.button.id.startswith("model-"):
+            try:
+                self.model_action(event.button.id)
+            except Exception as error:
+                self.error(error)
+        elif event.button.id == "new-task":
             self.new_task()
         elif event.button.id == "new-shell":
             try:
@@ -518,7 +692,20 @@ class ForgeApp(App):
 
     def execute(self, command: str):
         name, _, rest = command.partition(" ")
-        if name == "/help":
+        if name in ("/models", "/tutorial"):
+            if name == "/tutorial":
+                self.ollama.settings["tutorial_completed"] = False
+                self.ollama.save()
+            self.action_tab("models")
+        elif name == "/ollama":
+            operation, _, model = rest.partition(" ")
+            if model:
+                self.ui("#model-tag", Input).value = model_name(model.strip())
+            actions = {"refresh":"model-refresh", "pull":"model-pull", "use":"model-use", "chat":"model-chat", "serve":"model-serve", "setup":"model-setup", "unload":"model-unload", "cancel":"model-cancel"}
+            if operation not in actions:
+                raise ValueError("/ollama refresh|pull MODEL|use MODEL|chat|serve|setup|unload|cancel")
+            self.model_action(actions[operation])
+        elif name == "/help":
             self.action_help()
         elif name == "/launch":
             self.focus_session(self.runtime.launch(rest.strip()))

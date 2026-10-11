@@ -1,8 +1,8 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "interface": "terminal-native Textual TUI; no Electron or browser runtime",
   "tests": {
-    "passed": 21,
+    "passed": 44,
     "failed": 0,
     "command": "python -m pytest -q",
     "python": "3.13",
@@ -16,13 +16,21 @@
     "durable agent mail",
     "two actual stdio MCP clients",
     "guided task editing and review gates",
-    "terminal themes and compact layout"
+    "terminal themes and compact layout",
+    "Ollama streaming NDJSON over a real loopback HTTP fixture",
+    "per-layer byte percentages and unknown-phase display",
+    "persisted activation and reopen preload without automatic downloads",
+    "local/cloud model filtering, endpoint and redirect restrictions",
+    "Ollama tutorial, model selection and explicit download/load approval",
+    "embedded Ollama CLI launch arguments/input using a labeled executable fixture",
+    "fast native CLI startup output preserved when blank bottom rows shrink"
   ],
-  "visual_inspection": "nine actual TUI screen states inspected; compact overflow corrected",
+  "visual_inspection": "Six actual Ollama TUI states inspected individually: first-run, confirmation, byte progress, activated model, setup/resource meters, compact tutorial. Compact guide shortened to expose selection controls.",
   "provider_models_used": false,
   "not_yet_verified": [
     "actual installed Claude/Codex/Gemini/Kimi CLI compatibility",
-    "macOS real-device behavior"
+    "macOS real-device behavior",
+    "actual installed Ollama daemon and real model inference; HTTP and executable fixtures used here"
   ],
   "not_implemented": [
     "voice transcription",
