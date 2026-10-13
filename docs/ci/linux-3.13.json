@@ -1,0 +1,17 @@
+{
+  "suite": "linux-3.13",
+  "source_commit": "f6721f5000a10f5695dc31d2c12460e63f79e669",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38350348872",
+  "status": "failed",
+  "tests": 78,
+  "passed": 72,
+  "failed": 1,
+  "skipped": 5,
+  "failed_cases": [
+    {
+      "name": "test_actual_sandbox_permissions",
+      "class": "tests.test_integrations",
+      "message": "AssertionError: bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted\n  \nassert 1 == 0\n +  where 1 = CompletedProcess(args=['/usr/bin/bwrap', '--die-with-parent', '--new-session', '--unshare-all', '--cap-drop', 'ALL', '...NDBOX_ENFORCED')\\n\"], returncode=1, stdout='', stderr='bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted\\n').returncode"
+    }
+  ]
+}
