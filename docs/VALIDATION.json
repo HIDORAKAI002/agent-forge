@@ -217,8 +217,22 @@
     "scope": "One bounded file smoke test using a configured Aider profile; not a coding benchmark or sandbox compatibility acceptance."
   },
   "restored_workspace_tests": {
-    "passed": 74,
+    "passed": 78,
     "skipped": 7,
-    "note": "Real sandbox/Ruflo dependencies absent after environment restoration; dedicated CI covers them. This is not a new full kernel/device pass."
+    "note": "Real sandbox/Ruflo dependencies absent after restoration; dedicated CI covers them. Windows-only tests also skipped here."
+  },
+  "ruflo_runtime_guards": {
+    "executable_outside_project_required": true,
+    "windows_node_entrypoint_outside_project_required": true,
+    "project_and_relative_path_entries_removed": true
+  },
+  "source_zip_install_validation": {
+    "source_commit": "940495d95ab16eb042d7bc9220a0da8f354ef0ed",
+    "installed_from_zip": true,
+    "standalone_launcher": true,
+    "real_outer_tui": true,
+    "real_nested_shell": true,
+    "remember_persisted": true,
+    "exit_code": 0
   }
 }

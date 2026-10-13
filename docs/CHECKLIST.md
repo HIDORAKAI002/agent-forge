@@ -50,3 +50,6 @@ Commit `f6721f5`: live Ruflo passed; Linux sandbox startup failed on Ubuntu 24.0
 The 1.5B model passed the functional smoke test; 0.5B generated invalid dependencies, correctly refused without execution. This is not a coding-quality benchmark. Ollama can acknowledge unload before `/api/ps` clears: Forge now waits for observed residency removal, with bounded timeout/cancellation. Evidence and repeatable opt-in script are included.
 
 - [x] Add a state-free source installer bundle, manifest hashes and native Windows/Linux installation instructions.
+
+- [x] Refuse agent-writable Ruflo executables/entrypoints and remove project/relative directories from the host service PATH.
+- [x] Install the source ZIP into a fresh user-local environment and test the real outer TUI, persistent memory, nested shell and confirmed exit.

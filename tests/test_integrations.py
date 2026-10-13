@@ -157,3 +157,19 @@ def test_actual_git_helpers_and_metadata_boundary(project,monkeypatch):
         assert not (denied/'escaped').exists() and not (denied/'hook-escape').exists()
         assert (Path(runtime.store.task(task['id'])['worktree'])/'sample.txt').exists()
     finally:runtime.close()
+
+def test_ruflo_trusted_runtime_path_excludes_project(tmp_path,monkeypatch):
+    project=tmp_path/'project';project.mkdir();(project/'bin').mkdir()
+    trusted=tmp_path/'trusted-bin';trusted.mkdir()
+    monkeypatch.setenv('PATH',os.pathsep.join([str(project/'bin'),'.','',str(trusted)]))
+    env=safe_environment(tmp_path/'home',project)
+    assert env['PATH']==str(trusted.resolve())
+
+def test_ruflo_refuses_project_executable_before_running(project,monkeypatch):
+    from forge.store import Store
+    executable=project/('ruflo.exe' if os.name=='nt' else 'ruflo');executable.write_text('This file must not be executed');executable.chmod(0o755)
+    monkeypatch.setenv('FORGE_RUFLO_BIN',str(executable));monkeypatch.setenv('FORGE_CONFIG_HOME',str(project.parent/(project.name+'-trusted-ruflo')))
+    store=Store(project);bridge=RufloBridge(store)
+    try:
+        with pytest.raises(ValueError,match='outside the writable project'):bridge.enable()
+    finally:bridge.close();store.close()

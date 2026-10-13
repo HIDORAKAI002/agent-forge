@@ -3,7 +3,7 @@
 ## v0.5 hardening
 
 - Git metadata is read-only to agent sessions; parent Git worktree/status helpers are boundary-constrained with hooks/fsmonitor disabled. An actual malicious checkout-filter attempt could not write outside the project.
-- Trusted Ruflo state/home/index is stored outside the writable project in per-project user configuration.
+- Trusted Ruflo state/home/index is stored outside the writable project in per-project user configuration. Host-service executable/runtime entrypoints inside the writable project are refused; project/relative PATH entries are removed.
 - First remote run exposed sandbox host-policy startup and Windows path/shutdown failures. Fixes are submitted for new CI validation; old results are not release acceptance.
 
 ## v0.5 additions

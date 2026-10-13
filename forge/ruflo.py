@@ -6,8 +6,16 @@ from .settings import Preferences
 VERSION='3.56.9'
 TOOLS={'memory_store','memory_search','memory_retrieve','memory_stats','hooks_model-route'}
 
-def safe_environment(home):
+def safe_environment(home,project=None):
     env={k:v for k,v in os.environ.items() if k in ('PATH','SYSTEMROOT','WINDIR','COMSPEC','PATHEXT','LANG','LC_ALL','TMP','TEMP','APPDATA','LOCALAPPDATA')}
+    if project is not None:
+        trusted=[];project=Path(project).resolve()
+        for raw in env.get('PATH','').split(os.pathsep):
+            if not raw or not Path(raw).is_absolute():continue
+            try:directory=Path(raw).resolve()
+            except (OSError,RuntimeError):continue
+            if not directory.is_relative_to(project):trusted.append(str(directory))
+        env['PATH']=os.pathsep.join(trusted)
     env.update(HOME=str(home),USERPROFILE=str(home),XDG_CONFIG_HOME=str(home/'config'),XDG_CACHE_HOME=str(home/'cache'),RUFLO_AUTO_UPDATE='false',CLAUDE_FLOW_AUTO_UPDATE='false',HF_HUB_DISABLE_TELEMETRY='1',DO_NOT_TRACK='1')
     return env
 
@@ -34,10 +42,18 @@ class RufloBridge:
             if path.is_symlink():raise ValueError('Refusing linked Ruflo host state')
             path.mkdir(mode=0o700,exist_ok=True)
         home=managed(self.root,'home');home.mkdir(exist_ok=True)
-        env=safe_environment(home)
+        env=safe_environment(home,self.store.project)
         from .platform_support import windows_command
+        resolved=shutil.which(self.command,path=env.get('PATH',''))
+        if not resolved:raise ValueError('Ruflo executable is missing from the trusted runtime PATH')
+        binary=Path(resolved).resolve(strict=True)
+        if binary.is_relative_to(self.store.project.resolve()):raise ValueError('Ruflo executable must be outside the writable project')
+        self.command=str(binary)
         argv=[self.command,'--version']
         if os.name=='nt':argv,env=windows_command(argv,env)
+        for raw in argv[:-1]:
+            path=Path(raw)
+            if path.is_absolute() and path.resolve().is_relative_to(self.store.project.resolve()):raise ValueError('Ruflo runtime entrypoint overlaps writable project')
         version=subprocess.run(argv,env=env,cwd=self.root,capture_output=True,text=True,timeout=15)
         if version.returncode or f'v{VERSION}' not in version.stdout:raise ValueError(f'Ruflo version must be {VERSION}; unreviewed versions are refused')
         self.closing=False;self.enabled=True;self.state='Connecting to pinned Ruflo MCP';self.worker=threading.Thread(target=lambda:asyncio.run(self._run()),daemon=True);self.worker.start()
@@ -52,7 +68,7 @@ class RufloBridge:
         try:
             from mcp import ClientSession,StdioServerParameters
             from mcp.client.stdio import stdio_client
-            env=safe_environment(self.root/'home');argv=[self.command,'mcp','start','--transport','stdio','--tools',','.join(sorted(TOOLS))]
+            env=safe_environment(self.root/'home',self.store.project);argv=[self.command,'mcp','start','--transport','stdio','--tools',','.join(sorted(TOOLS))]
             if os.name=='nt':
                 from .platform_support import windows_command
                 argv,env=windows_command(argv,env)
