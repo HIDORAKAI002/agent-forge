@@ -1,27 +1,11 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "f6721f5000a10f5695dc31d2c12460e63f79e669",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38350348872",
-  "status": "failed",
-  "tests": 19,
-  "passed": 15,
-  "failed": 3,
-  "skipped": 1,
-  "failed_cases": [
-    {
-      "name": "test_native_conpty_input_resize_and_exit",
-      "class": "tests.test_windows",
-      "message": "assert 3221225477 == 0\n +  where 3221225477 = <forge.terminal.Session object at 0x00000253F47CF850>.exit_code"
-    },
-    {
-      "name": "test_native_tui_and_installed_launcher",
-      "class": "tests.test_windows",
-      "message": "AssertionError: ConPTY timed out:                                                                    \u2502\n\u2502    241 \u2502   \u2502   path = path.decode(ENCODING, errors=\"strict\")                                                                                                 \u2502\n\u2502 \u2771  242 \u2502   total, used, free = cext.disk_usage(path)                                                                                                         \u2502\n\u2502    243 \u2502   percent = usage_percent(used, total, round_=1)                                                                                                    \u2502\n\u2502    244 \u2502   return ntp.sdiskusage(total, used, free, percent)                                                                                                 \u2502\n\u2502    245                                                                                                                                                       \u2502\n\u2502                                                                                                                                                              \u2502\n\u2502 \u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 locals \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"
-    },
-    {
-      "name": "test_permissions_and_ruflo_controls_require_confirmation",
-      "class": "tests.test_integrations",
-      "message": "TypeError: argument 1 must be str, not WindowsPath"
-    }
-  ]
+  "source_commit": "d683d8f8624e01f1b5402e997f868c4aea196c60",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38351513079",
+  "status": "passed",
+  "tests": 21,
+  "passed": 19,
+  "failed": 0,
+  "skipped": 2,
+  "failed_cases": []
 }
