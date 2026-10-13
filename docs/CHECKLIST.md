@@ -21,10 +21,11 @@ Checked means implemented and supported by the stated evidence, not that every p
 
 ## Acceptance gates still open
 
-- [ ] Confirm Windows 3.11/3.13 CI passes for the current source commit. Linux skips do not count.
-- [ ] Confirm remote Linux and live-Ruflo CI passes for the current source commit.
+- [x] Native Windows 3.11/3.13 CI for `d683d8f`: 19 passed, two skipped each; all four native acceptance tests passed. Later changes still require new reports.
+- [x] Linux 3.11/3.13 CI for `d683d8f`: 75 passed, five skipped each; actual Ruflo: one passed.
 - [ ] Implement and adversarially test equivalent native Windows folder isolation. ConPTY/Job Objects alone do not restrict filesystem access.
-- [ ] Validate real provider accounts and local Ollama/Aider combinations, including sandbox cache/auth behavior.
+- [x] Validate actual local Ollama/Qwen2.5-Coder 1.5B CPU activation, generation, bounded planning, embedded CLI and confirmed unload.
+- [ ] Validate real provider accounts and Aider coding combinations, including sandbox cache/auth behavior.
 - [ ] Test microphones, OS credential stores and macOS behavior on actual devices.
 - [ ] Independent security review and wider escape tests; current Linux checks are meaningful, not an absolute security guarantee.
 
@@ -42,3 +43,7 @@ A push to `main` starts Linux, native Windows and pinned-Ruflo CI when GitHub Ac
 ## First remote run and hardening
 
 Commit `f6721f5`: live Ruflo passed; Linux sandbox startup failed on Ubuntu 24.04 host policy; Windows found a Path/string error and native ConPTY interpreter-shutdown crash. These are failures, not passes. Current changes enforce user namespaces explicitly, use Ubuntu 22.04 integration runners without disabling host security, normalize Windows disk paths, and terminate the isolated ConPTY broker after Job cleanup without racing native-reader finalizers. New adversarial Git/state tests pass locally; remote acceptance must be checked for the new commit. Restricted hosts still fail closed.
+
+## Real-model follow-up
+
+The 1.5B model passed the functional smoke test; 0.5B generated invalid dependencies, correctly refused without execution. This is not a coding-quality benchmark. Ollama can acknowledge unload before `/api/ps` clears: Forge now waits for observed residency removal, with bounded timeout/cancellation. Evidence and repeatable opt-in script are included.

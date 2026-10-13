@@ -10,6 +10,7 @@ from pathlib import Path
 import queue
 import re
 import threading
+import time
 import urllib.request
 from urllib.parse import urlsplit
 from .store import managed
@@ -208,6 +209,13 @@ class OllamaHub:
             elif operation == 'unload':
                 self.api.unload(model)
             snapshot = self.api.inventory()
+            if operation == 'unload':
+                # An acknowledgement can precede actual residency clearing.
+                deadline=time.monotonic()+10
+                while any(m.get('name',m.get('model'))==model for m in snapshot['loaded']):
+                    if self.cancelled.is_set() or self.closed:raise ValueError('Unload confirmation cancelled')
+                    if time.monotonic()>=deadline:raise ValueError('Unload requested but model is still reported loaded; refresh to check residency')
+                    time.sleep(.1);snapshot=self.api.inventory()
             if self.cancelled.is_set() or self.closed:
                 raise ValueError('Operation cancelled; no automatic activation recorded')
             if operation in ('pull', 'activate'):

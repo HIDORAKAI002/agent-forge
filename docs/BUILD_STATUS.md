@@ -28,12 +28,16 @@
 
 ## Not completed / not claimed production-ready
 
-- Native Windows validation: backend/locking/installer code now exists, but a real Windows CI pass and device/provider compatibility are separate acceptance gates.
+- Native Windows device/provider combinations beyond the passing 3.11/3.13 native CI suite remain unverified.
 - Native Windows/macOS OS sandbox is still missing. Linux/WSL Bubblewrap is implemented and tested; OFF mode remains unrestricted, and worktrees by themselves are never a sandbox.
 - Full upstream Ruflo surface is not enabled: browser/federation/autopilot/hive-mind execution modules are outside the implemented memory/routing bridge. Ruflo is not a second authoritative scheduler or memory store.
-- Actual provider CLI account validation, real Ollama coding/model validation, OS keyring/device behavior and microphone device testing remain separate from fixture-based automated tests.
+- Actual provider CLI account validation, real Aider coding validation, OS keyring/device behavior and microphone device testing remain separate from fixture-based automated tests.
 
-## Verified in this environment
+## Verified evidence
+
+- All five CI suites passed source `d683d8f`: Linux 75 passed each; native Windows 19 passed each; actual Ruflo one passed. Skips are documented separately.
+- Actual Ollama 0.6.8 + Qwen2.5-Coder 1.5B CPU activation, generation, schema-validated plan, embedded CLI and confirmed unload; no paid provider. Tiny 0.5B invalid plan rejected.
+- The workspace was restored from an older snapshot on continuation; latest code was recovered from GitHub rather than overwriting it. Model evidence was retained from committed session events.
 
 - 64 automated tests on Linux/Python 3.13.
 - Actual isolated installer and standalone `agent-command` outer-PTY/nested-shell smoke test.

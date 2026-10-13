@@ -224,3 +224,17 @@ def test_planner_uses_real_local_http_api_and_schema(ollama_server):
     assert body['format']['additionalProperties'] is False
     assert body['model']=='fixture:local'
     planner.close()
+
+def test_unload_waits_for_actual_residency(tmp_path,ollama_server,monkeypatch):
+    host,state=ollama_server;state['installed']=state['loaded']=True
+    hub=OllamaHub(tmp_path,host);original=hub.api.inventory;reads=[]
+    def delayed():
+        snapshot=original();reads.append(1)
+        if len(reads)<3:snapshot['loaded']=[{'name':'fixture:local'}]
+        return snapshot
+    monkeypatch.setattr(hub.api,'inventory',delayed)
+    try:
+        hub.start('unload','fixture:local');finish(hub)
+        assert len(reads)>=3 and not hub.inventory['loaded']
+        assert hub.state=='Unloaded · auto-activation off'
+    finally:hub.close()

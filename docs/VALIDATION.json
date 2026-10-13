@@ -48,13 +48,10 @@
   "not_yet_verified": [
     "actual installed Claude/Codex/Gemini/Kimi CLI compatibility",
     "macOS real-device behavior",
-    "actual installed Ollama daemon and real model inference; HTTP and executable fixtures used here",
     "real microphone and PortAudio devices",
     "actual OS credential stores and Codex account authentication; fixture tests only",
     "native provider installers executing on a user machine",
-    "real local Ollama supervisor inference and Aider coding; HTTP/profile fixtures only",
-    "native Windows ConPTY, Job Object, locking and installer acceptance tests; CI source exists but evidence must be checked",
-    "remote Linux/Ruflo CI for current source commit",
+    "Actual Aider coding integration; real supervisor inference passed separately",
     "independent security review and broader sandbox compatibility"
   ],
   "not_implemented": [
@@ -141,7 +138,7 @@
     "implemented": true,
     "native_tests": 4,
     "local_execution": "skipped: Linux host",
-    "status": "awaiting native Windows CI",
+    "status": "Four real native acceptance tests passed on Windows 3.11 and 3.13 CI for d683d8f",
     "sandbox_implemented": false
   },
   "first_remote_run": {
@@ -149,5 +146,55 @@
     "ruflo": "passed",
     "linux": "sandbox startup failed under Ubuntu 24.04 host policy",
     "windows": "path type and ConPTY finalizer crash; patched, new native CI required"
+  },
+  "actual_ollama_validation": {
+    "model": "qwen2.5-coder:1.5b",
+    "runtime": "Ollama 0.6.8",
+    "actual_daemon": true,
+    "actual_weights": true,
+    "provider_keys_used": false,
+    "hardware": "CPU",
+    "tasks_dispatched": 0,
+    "forge_hub_activation": "Ready",
+    "actual_chat_response": "```python\ndef add(a, b):\n    return a + b\n```",
+    "eval_count": 17,
+    "actual_forge_plan": [
+      {
+        "title": "Write unit test for add(a, b)",
+        "prompt": "Implement the add function and write a unit test to verify its correctness.",
+        "risk": "high",
+        "depends_on": []
+      }
+    ],
+    "embedded_real_cli_exit_code": 0,
+    "embedded_real_cli_output": "LOCAL_MODEL_OK",
+    "unload_completed": true,
+    "negative_check": "Qwen2.5-Coder 0.5B produced invalid dependencies; the plan was rejected without queueing or dispatch.",
+    "evidence_note": "Actual daemon/model run completed before the workspace was restored from an older snapshot. Evidence recovered from committed session events; not a newly executed inference in the restored environment."
+  },
+  "ci_acceptance": {
+    "source_commit": "d683d8f8624e01f1b5402e997f868c4aea196c60",
+    "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38351513079",
+    "linux_3.11": {
+      "passed": 75,
+      "skipped": 5
+    },
+    "linux_3.13": {
+      "passed": 75,
+      "skipped": 5
+    },
+    "windows_3.11": {
+      "passed": 19,
+      "skipped": 2
+    },
+    "windows_3.13": {
+      "passed": 19,
+      "skipped": 2
+    },
+    "ruflo": {
+      "passed": 1,
+      "skipped": 0
+    },
+    "note": "All five suites passed this exact source. Later changes need their own reports."
   }
 }
