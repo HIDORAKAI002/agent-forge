@@ -1,5 +1,11 @@
 # Build status and release boundaries
 
+## v0.5 hardening
+
+- Git metadata is read-only to agent sessions; parent Git worktree/status helpers are boundary-constrained with hooks/fsmonitor disabled. An actual malicious checkout-filter attempt could not write outside the project.
+- Trusted Ruflo state/home/index is stored outside the writable project in per-project user configuration.
+- First remote run exposed sandbox host-policy startup and Windows path/shutdown failures. Fixes are submitted for new CI validation; old results are not release acceptance.
+
 ## v0.5 additions
 
 - Real pinned Ruflo 3.56.9 MCP bridge: derived memory indexing, SmartRetrieval, canonical record rehydration and advisory routing used as Ollama planning context. Actual MCP indexing/retrieval/routing tested. No upstream agent executor is enabled.

@@ -644,7 +644,7 @@ class ForgeApp(App):
                 table.add_row(Text(name), bytes_text(item.get("size", 0)), str(detail.get("parameter_size", "?")), str(detail.get("quantization_level", "?")), "YES" if name in loaded else "no", key=name)
             self.cache["model-table"] = signature
         vm = psutil.virtual_memory()
-        disk = psutil.disk_usage(self.runtime.store.project)
+        disk = psutil.disk_usage(str(self.runtime.store.project))
         lines = [f"HOST RAM {vm.percent:.0f}% used · {vm.available/1e9:.1f}/{vm.total/1e9:.1f} GB available · project disk free {disk.free/1e9:.1f} GB"]
         for name, item in loaded.items():
             size, vram = item.get("size", 0), item.get("size_vram", 0)

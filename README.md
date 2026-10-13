@@ -75,6 +75,7 @@ Open **Setup → Permissions** or `/sandbox`. Review and confirm:
 - The selected project is the only **persistently writable** host folder.
 - Separately approved reference/runtime directories are mounted **read-only**.
 - Other user directories are absent from the sandbox; symlinks do not grant access to hidden targets.
+- Git control metadata is read-only to agents; Forge Git helpers run inside the same boundary with hooks/fsmonitor disabled.
 - Standard `/usr`, `/bin`, `/sbin`, `/lib`, `/lib64` runtime trees and selected certificate/resolver configuration are read-only exceptions. Disposable temporary HOME/tmp are writable. Host procfs is not mounted.
 - Network is blocked by default. Allowing networking permits the **host network**, including local Ollama; it is not a provider-domain-only firewall.
 - Inherited SSH sockets, unrelated API keys and startup environment hooks are removed. Only the selected engine's managed credentials are passed in its process environment—not command arguments.
@@ -87,7 +88,7 @@ For the optional Ruflo integration:
 npm install -g ruflo@3.56.9
 ```
 
-Choose **Connect Ruflo** in Setup, then **Sync memories** or `/ruflo search QUERY`. The version is checked before use. Connecting authorizes initial local embedding downloads. This is trusted host-side software, not a sandboxed agent; provider keys and SSH sockets are not inherited. Forge SQLite is authoritative; Ruflo stores a derived index. Retrieved IDs are rehydrated from current Forge records, never trusted as independently verified content.
+Choose **Connect Ruflo** in Setup, then **Sync memories** or `/ruflo search QUERY`. The version is checked before use. Connecting authorizes initial local embedding downloads. This is trusted host-side software, not a sandboxed agent; provider keys and SSH sockets are not inherited. Forge SQLite is authoritative; Ruflo stores a derived index in trusted per-project user configuration outside the writable project. Retrieved IDs are rehydrated from current Forge records, never trusted as independently verified content.
 
 When connected, **Make plan** retrieves relevant memories and obtains an advisory `hooks_model-route` hint before calling the selected Ollama planner. Ruflo's hint does not override user engine tiers or authorize paid calls. Forge still performs real CLI dispatch and review gates. No Ruflo browser/federation/autopilot executors are enabled. Some upstream orchestration endpoints only schedule records; we do not present that as actual agent execution. This is a defined memory/routing integration, **not every Ruflo feature imported wholesale**.
 

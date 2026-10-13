@@ -66,13 +66,18 @@ class Runtime:
         if not profile:
             raise ValueError("Task engine is not configured")
         profile.command("validate task-mode availability")
-        def git(*args):
-            return subprocess.check_output(["git", "-C", str(self.store.project), *args], text=True, timeout=15, stderr=subprocess.STDOUT).strip()
+        def git(*args,raw=False):
+            # Parent-side Git can execute repository hooks/filters/fsmonitor. It
+            # gets the same OS boundary, without provider credentials.
+            argv=["git","-c","core.hooksPath=/dev/null" if os.name!='nt' else "core.hooksPath=NUL","-c","core.fsmonitor=false","-C",str(self.store.project),*args]
+            argv,env=self.sandbox.wrap(argv,self.store.project,dict(os.environ),protect_control=False)
+            value=subprocess.check_output(argv,env=env,text=True,timeout=15,stderr=subprocess.STDOUT)
+            return value if raw else value.strip()
         if Path(git("rev-parse", "--show-toplevel")).resolve() != self.store.project:
             raise ValueError("Open the Git repository root for isolated tasks")
         git("rev-parse", "--verify", "HEAD")
         # Don't strip leading status spaces: preserve porcelain path offsets.
-        status = subprocess.check_output(["git", "-C", str(self.store.project), "status", "--porcelain", "--untracked-files=all"], text=True, timeout=15)
+        status = git("status", "--porcelain", "--untracked-files=all",raw=True)
         dirty = [line for line in status.splitlines() if not line[3:].strip('"').startswith(".agent-forge/")]
         if dirty:
             raise ValueError("Commit or stash changes first; isolated work starts from committed HEAD")

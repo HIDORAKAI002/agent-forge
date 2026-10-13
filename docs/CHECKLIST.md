@@ -11,7 +11,8 @@ Checked means implemented and supported by the stated evidence, not that every p
 - [x] Feed retrieved context/routing hints into the existing review-gated planning workflow.
 - [x] Implement one writable project + explicit read-only reference grants on Linux/WSL.
 - [x] Test project writes, approved reads, blocked reference writes, hidden-path reads/writes, symlink escapes, network denial and inherited-secret removal with real Bubblewrap.
-- [x] Keep permission policy outside agent-writable storage; no unsandboxed fallback.
+- [x] Keep permission policy and Ruflo host state outside agent-writable storage; no unsandboxed fallback.
+- [x] Protect Git control metadata from agent edits; constrain parent Git helpers and test hostile filters/hooks.
 - [x] Add reviewed GUI permissions, per-session isolation labels and grant-revoking policy changes.
 - [x] Implement Windows ConPTY, workspace locking, Job Object cleanup and native npm entrypoint resolution.
 - [x] Write a user-local native PowerShell installer and placeholder launcher.
@@ -37,3 +38,7 @@ Checked means implemented and supported by the stated evidence, not that every p
 ## Automatic verification
 
 A push to `main` starts Linux, native Windows and pinned-Ruflo CI when GitHub Actions is enabled. Each suite publishes a bounded JSON record to `validation:docs/ci/` with its source commit and run URL. Do not mark a gate passed using a record for an older commit. If repository/organization policy blocks Actions or write-scoped CI tokens, that is an external blocker—not a test pass.
+
+## First remote run and hardening
+
+Commit `f6721f5`: live Ruflo passed; Linux sandbox startup failed on Ubuntu 24.04 host policy; Windows found a Path/string error and native ConPTY interpreter-shutdown crash. These are failures, not passes. Current changes enforce user namespaces explicitly, use Ubuntu 22.04 integration runners without disabling host security, normalize Windows disk paths, and terminate the isolated ConPTY broker after Job cleanup without racing native-reader finalizers. New adversarial Git/state tests pass locally; remote acceptance must be checked for the new commit. Restricted hosts still fail closed.

@@ -103,6 +103,7 @@ async def test_permissions_and_ruflo_controls_require_confirmation(project):
 
 def test_actual_ruflo_bridge(project,monkeypatch):
     if os.environ.get('FORGE_RUFLO_TESTS')!='1':pytest.skip('Pinned live Ruflo integration explicitly enabled in dedicated CI')
+    monkeypatch.setenv('FORGE_CONFIG_HOME',str(project.parent/(project.name+'-ruflo-trusted')))
     from forge.store import Store
     store=Store(project);memory=store.remember('Run parser tests before review','decision','user',True);bridge=RufloBridge(store)
     def wait(fn):
@@ -117,3 +118,42 @@ def test_actual_ruflo_bridge(project,monkeypatch):
         assert memory['id'] in [m['id'] for m in result['memories']]
         assert result['route_hint']['model'] and store.tasks()==[]
     finally:bridge.close();store.close()
+
+def test_ruflo_refuses_agent_writable_host_state(project,monkeypatch):
+    from forge.store import Store
+    store=Store(project);monkeypatch.setenv('FORGE_RUFLO_BIN','ruflo-fixture')
+    bridge=RufloBridge(store)
+    try:
+        with pytest.raises(ValueError,match='outside the writable project'):bridge.enable()
+    finally:bridge.close();store.close()
+
+def test_actual_git_helpers_and_metadata_boundary(project,monkeypatch):
+    if os.environ.get('FORGE_SANDBOX_TESTS')!='1':pytest.skip('Actual Bubblewrap required')
+    import shlex
+    from forge.runtime import Runtime
+    denied=project.parent/(project.name+'-denied-write');denied.mkdir()
+    def git(*args):return subprocess.run(['git','-C',str(project),*args],check=True,capture_output=True,text=True)
+    (project/'.gitattributes').write_text('sample.txt filter=escape\n');(project/'sample.txt').write_text('sample\n')
+    git('add','.');git('-c','user.name=Test','-c','user.email=test@example.invalid','commit','-m','Filter fixture')
+    malicious=f'import pathlib;pathlib.Path({str(denied/"escaped")!r}).write_text("host escape");print("sample")'
+    git('config','filter.escape.smudge',shlex.join([str(Path(sys.executable).resolve()),'-c',malicious]))
+    (project/'.git/hooks/post-checkout').write_text('#!/bin/sh\ntouch '+shlex.quote(str(denied/'hook-escape'))+'\n');(project/'.git/hooks/post-checkout').chmod(0o755)
+    config=project/'.agent-forge';config.mkdir(exist_ok=True)
+    (config/'profiles.json').write_text(json.dumps([dict(id='fixture',argv=[str(Path(sys.executable).resolve())],task_argv=[str(Path(sys.executable).resolve()),'-c',"print('BOUNDARY_TASK_OK')"])]))
+    monkeypatch.setenv('FORGE_CONFIG_HOME',str(project.parent/(project.name+'-trusted')))
+    runtime=Runtime(project)
+    try:
+        grants=[]
+        if not Path(sys.executable).resolve().is_relative_to(Path('/usr')):grants.append(str(Path(sys.base_prefix).resolve()))
+        runtime.sandbox.save({'enabled':True,'network':False,'read_only':grants})
+        code=f'import pathlib;p=pathlib.Path({str(project/".git/config")!r});p.write_text("bad")'
+        argv,env=runtime.sandbox.wrap([str(Path(sys.executable).resolve()),'-c',code],project,dict(os.environ))
+        denied_edit=subprocess.run(argv,env=env,capture_output=True,text=True,timeout=20)
+        assert denied_edit.returncode!=0 and 'Read-only file system' in denied_edit.stderr
+        task=runtime.store.create_task('Boundary test','No external writes','fixture');session=runtime.run_task(task['id'])
+        end=time.monotonic()+15
+        while session.status=='running' and time.monotonic()<end:runtime.poll();time.sleep(.03)
+        assert session.exit_code==0
+        assert not (denied/'escaped').exists() and not (denied/'hook-escape').exists()
+        assert (Path(runtime.store.task(task['id'])['worktree'])/'sample.txt').exists()
+    finally:runtime.close()

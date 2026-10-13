@@ -2,7 +2,7 @@
   "version": "0.5.0",
   "interface": "terminal-native Textual TUI; no Electron or browser runtime",
   "tests": {
-    "passed": 74,
+    "passed": 76,
     "failed": 0,
     "command": "FORGE_SANDBOX_TESTS=1 FORGE_RUFLO_TESTS=1 python -m pytest -q",
     "python": "3.13",
@@ -39,7 +39,9 @@
     "actual pinned Ruflo MCP memory indexing, canonical retrieval and heuristic-Thompson advisory routing",
     "actual Bubblewrap project/reference/hidden-path/symlink/network/secret boundary checks",
     "cross-platform lock abstraction and standard npm-shim parsing tests",
-    "GUI permission/Ruflo confirmations cancel without enabling either feature"
+    "GUI permission/Ruflo confirmations cancel without enabling either feature",
+    "actual enforced Git helpers with malicious checkout filter and read-only agent Git metadata",
+    "Ruflo host state outside writable project"
   ],
   "visual_inspection": "Five actual v0.5 TUI states inspected individually: folder permissions, review, actual Ruflo connection/index, actual SmartRetrieval result and compact permissions. OFF vs enforced status is explicitly distinguished.",
   "provider_models_used": false,
@@ -141,5 +143,11 @@
     "local_execution": "skipped: Linux host",
     "status": "awaiting native Windows CI",
     "sandbox_implemented": false
+  },
+  "first_remote_run": {
+    "source_commit": "f6721f5000a10f5695dc31d2c12460e63f79e669",
+    "ruflo": "passed",
+    "linux": "sandbox startup failed under Ubuntu 24.04 host policy",
+    "windows": "path type and ConPTY finalizer crash; patched, new native CI required"
   }
 }

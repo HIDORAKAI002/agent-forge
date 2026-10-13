@@ -29,7 +29,7 @@ def job_for(pid):
 def main():
     from winpty import PtyProcess,Backend
     from .platform_support import windows_command
-    child=None;job=None;kernel=None
+    child=None;job=None;kernel=None;exit_code=125
     controls=queue.Queue();outputs=queue.Queue(maxsize=2000)
     def control_reader():
         try:
@@ -69,12 +69,14 @@ def main():
                 continue
             if text is None:break
             sys.stdout.buffer.write(text.encode('utf-8'));sys.stdout.buffer.flush()
-        return (child.exitstatus if child.exitstatus is not None else 1)&255
+        exit_code=(child.exitstatus if child.exitstatus is not None else 1)&255
     except BaseException as error:
-        print(json.dumps({'error':str(error)}),file=sys.stderr,flush=True);return 125
+        print(json.dumps({'error':str(error)}),file=sys.stderr,flush=True);exit_code=125
     finally:
         if job:kernel.CloseHandle(job)
-        if child:
-            try:child.close(force=True)
-            except (OSError,EOFError):pass
+        # The isolated broker owns all ConPTY handles. Let the OS reclaim them;
+        # interpreter finalizers race pywinpty's native reader on child exit.
+        # Job closure above kills any surviving descendants before termination.
+        sys.stdout.flush();sys.stderr.flush()
+        os._exit(exit_code)
 if __name__=='__main__':raise SystemExit(main())

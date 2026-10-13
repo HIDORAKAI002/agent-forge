@@ -2,6 +2,7 @@
 import asyncio,hashlib,json,os,queue,shutil,subprocess,threading
 from pathlib import Path
 from .store import managed
+from .settings import Preferences
 VERSION='3.56.9'
 TOOLS={'memory_store','memory_search','memory_retrieve','memory_stats','hooks_model-route'}
 
@@ -24,11 +25,15 @@ def decode_result(result):
 class RufloBridge:
     def __init__(self,store):
         self.store=store;self.enabled=False;self.connected=False;self.state='OFF / optional pinned Ruflo integration';self.jobs=queue.Queue(maxsize=10);self.events=queue.Queue();self.closing=False;self.loop=None;self.task=None;self.worker=None;self.indexed={};self.busy=False
-        self.root=managed(store.directory,'ruflo');self.command=os.environ.get('FORGE_RUFLO_BIN') or shutil.which('ruflo')
+        self.root=Preferences().root/'ruflo-state'/hashlib.sha256(str(store.project.resolve()).encode()).hexdigest();self.command=os.environ.get('FORGE_RUFLO_BIN') or shutil.which('ruflo')
     def enable(self):
         if self.enabled:return
         if not self.command:raise ValueError(f'Install Node.js 20+ and npm install -g ruflo@{VERSION} first')
-        self.root.mkdir(mode=0o700,exist_ok=True);home=managed(self.root,'home');home.mkdir(exist_ok=True)
+        if self.root.resolve().is_relative_to(self.store.project.resolve()):raise ValueError('Ruflo host state must be outside the writable project')
+        for path in (self.root.parent,self.root):
+            if path.is_symlink():raise ValueError('Refusing linked Ruflo host state')
+            path.mkdir(mode=0o700,exist_ok=True)
+        home=managed(self.root,'home');home.mkdir(exist_ok=True)
         env=safe_environment(home)
         from .platform_support import windows_command
         argv=[self.command,'--version']

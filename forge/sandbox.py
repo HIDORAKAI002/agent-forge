@@ -40,14 +40,14 @@ class Sandbox:
         with tmp.open('w') as f:json.dump(policy,f,indent=2)
         if os.name!='nt':tmp.chmod(0o600)
         tmp.replace(self.path);self.policy=policy
-    def wrap(self,argv,cwd,environment,credentials=None):
+    def wrap(self,argv,cwd,environment,credentials=None,*,protect_control=True):
         if not self.policy['enabled']:return argv,environment
         if not sys.platform.startswith('linux') or not (bwrap:=shutil.which('bwrap')):raise ValueError('Sandbox unavailable; refusing to launch without enforcement')
         if Path(__file__).resolve().is_relative_to(self.project):raise ValueError('Forge installation overlaps writable project')
         if self.path.is_relative_to(self.project):raise ValueError('Sandbox permission storage overlaps writable project')
         current=Path(cwd).resolve(strict=True)
         if not current.is_relative_to(self.project):raise ValueError('Sandbox working directory must stay in project')
-        args=[bwrap,'--die-with-parent','--new-session','--unshare-all','--cap-drop','ALL']
+        args=[bwrap,'--die-with-parent','--new-session','--unshare-all','--unshare-user','--cap-drop','ALL']
         if self.policy['network']:args+=['--share-net']
         # These standard runtime trees are read-only, not a bind of the host root.
         for raw in BASE_RUNTIME:
@@ -61,11 +61,19 @@ class Sandbox:
         for raw in self.policy['read_only']:
             if Path(raw).is_symlink() or str(Path(raw).resolve(strict=True))!=raw:raise ValueError('Read-only grant changed; review and save permissions again')
             args+=['--ro-bind',raw,raw]
-        args+=['--bind',str(self.project),str(self.project),'--chdir',str(current)]
+        args+=['--bind',str(self.project),str(self.project)]
+        # Agents may edit source, not Git control files consumed by trusted helpers.
+        metadata=self.project/'.git'
+        if metadata.is_symlink():raise ValueError('Linked Git metadata is not supported in enforced mode')
+        if metadata.exists():
+            if not metadata.is_dir():raise ValueError('Enforced projects require in-project Git metadata')
+            if protect_control:args+=['--ro-bind',str(metadata),str(metadata)]
+        args+=['--chdir',str(current)]
         # Drop inherited secrets, SSH sockets, startup hooks and arbitrary environment.
         clean={k:environment[k] for k in ('PATH','LANG','LC_ALL','TERM','COLORTERM') if k in environment}
         clean.update(HOME='/tmp/forge-home',TMPDIR='/tmp',FORGE_PROJECT=str(self.project))
         clean.update(credentials or {})
+        if protect_control:clean['GIT_OPTIONAL_LOCKS']='0'
         if self.policy['network'] and 'OLLAMA_API_BASE' in environment:clean['OLLAMA_API_BASE']=environment['OLLAMA_API_BASE']
         return args+['--',*argv],clean
     def summary(self):
