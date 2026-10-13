@@ -29,7 +29,7 @@ class Profile:
 
 
 def profiles(project: Path) -> dict[str, Profile]:
-    shell = os.environ.get("SHELL") or "/bin/bash"
+    shell = (os.environ.get("COMSPEC") or "cmd.exe") if os.name=="nt" else (os.environ.get("SHELL") or "/bin/bash")
     default = [Profile("shell", "Project shell", (shell,)),
                Profile("claude", "Claude Code", ("claude",), ("claude", "-p", "{prompt}")),
                Profile("codex", "OpenAI Codex", ("codex",), ("codex", "exec", "{prompt}")),

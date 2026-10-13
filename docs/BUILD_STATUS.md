@@ -1,5 +1,13 @@
 # Build status and release boundaries
 
+## v0.5 additions
+
+- Real pinned Ruflo 3.56.9 MCP bridge: derived memory indexing, SmartRetrieval, canonical record rehydration and advisory routing used as Ollama planning context. Actual MCP indexing/retrieval/routing tested. No upstream agent executor is enabled.
+- Linux/WSL Bubblewrap filesystem enforcement: project writable, approved references read-only, other user paths hidden, network blocked unless explicitly allowed, fail-closed behavior and secret environment filtering. Eight real kernel permission checks passed. Runtime-tree and temporary-space exceptions are documented.
+- Native Windows ConPTY broker, Job Object cleanup, Windows workspace locking, safe standard npm-shim resolution and PowerShell installer added. Four native Windows tests must pass on Windows; Linux skips are not passes.
+- Automated Linux/Windows/Ruflo CI and source-commit-tagged validation records. See [CHECKLIST.md](CHECKLIST.md).
+
+
 ## v0.4 implemented
 
 - User-local installer with isolated package environment and a temporary `agent-command` launcher; source checkout is not required after installation. Optional voice dependencies use `FORGE_VOICE=1`. Supported bash/zsh profiles get a backed-up managed PATH block; `FORGE_CONFIGURE_PATH=0` disables profile changes. Other shells get manual PATH instructions.
@@ -14,9 +22,9 @@
 
 ## Not completed / not claimed production-ready
 
-- Native Windows support: requires a ConPTY backend, Windows process-tree cleanup, a replacement for POSIX project locking, native install scripts and real Windows CI/device tests. WSL works through the existing Linux backend.
-- Enforced OS sandbox: existing PTYs run with the user's permissions. Worktrees isolate changes, **not** filesystem/network/command permissions. A container/VM adapter needs scoped mounts, credentials, network policy and adversarial escape tests before it can be called a sandbox.
-- Ruflo integration: no Ruflo source or package is imported. Ruflo is an optional orchestration/memory/routing reference from the original request, not another name for this application. Audit specific components and their licenses before integrating; do not introduce competing authoritative schedulers or memory stores.
+- Native Windows validation: backend/locking/installer code now exists, but a real Windows CI pass and device/provider compatibility are separate acceptance gates.
+- Native Windows/macOS OS sandbox is still missing. Linux/WSL Bubblewrap is implemented and tested; OFF mode remains unrestricted, and worktrees by themselves are never a sandbox.
+- Full upstream Ruflo surface is not enabled: browser/federation/autopilot/hive-mind execution modules are outside the implemented memory/routing bridge. Ruflo is not a second authoritative scheduler or memory store.
 - Actual provider CLI account validation, real Ollama coding/model validation, OS keyring/device behavior and microphone device testing remain separate from fixture-based automated tests.
 
 ## Verified in this environment

@@ -1,12 +1,13 @@
 {
-  "version": "0.4.0",
+  "version": "0.5.0",
   "interface": "terminal-native Textual TUI; no Electron or browser runtime",
   "tests": {
-    "passed": 64,
+    "passed": 74,
     "failed": 0,
-    "command": "python -m pytest -q",
+    "command": "FORGE_SANDBOX_TESTS=1 FORGE_RUFLO_TESTS=1 python -m pytest -q",
     "python": "3.13",
-    "platform": "Linux"
+    "platform": "Linux",
+    "skipped": 4
   },
   "real_cli_byte_tests": "passed twice independently, then again in full suite; real forge command in outer PTY with nested shell input and confirmation",
   "verified": [
@@ -34,9 +35,13 @@
     "dispatch max concurrency, dependency review gates, command-change permission revocation",
     "Aider local model profile flags",
     "actual faster-whisper tiny.en CPU/int8 public-sample transcription",
-    "actual Forge voice prepare to RAM PCM buffer to editable draft event; no auto-submit"
+    "actual Forge voice prepare to RAM PCM buffer to editable draft event; no auto-submit",
+    "actual pinned Ruflo MCP memory indexing, canonical retrieval and heuristic-Thompson advisory routing",
+    "actual Bubblewrap project/reference/hidden-path/symlink/network/secret boundary checks",
+    "cross-platform lock abstraction and standard npm-shim parsing tests",
+    "GUI permission/Ruflo confirmations cancel without enabling either feature"
   ],
-  "visual_inspection": "15 v0.4 actual Textual states inspected individually: setup, provider controls, eight palettes, fixture planner draft, queue approval, voice controls, actual public-sample transcription draft, compact setup. Theme background defects fixed; picker synchronized with toolbar theme changes.",
+  "visual_inspection": "Five actual v0.5 TUI states inspected individually: folder permissions, review, actual Ruflo connection/index, actual SmartRetrieval result and compact permissions. OFF vs enforced status is explicitly distinguished.",
   "provider_models_used": false,
   "not_yet_verified": [
     "actual installed Claude/Codex/Gemini/Kimi CLI compatibility",
@@ -45,12 +50,14 @@
     "real microphone and PortAudio devices",
     "actual OS credential stores and Codex account authentication; fixture tests only",
     "native provider installers executing on a user machine",
-    "real local Ollama supervisor inference and Aider coding; HTTP/profile fixtures only"
+    "real local Ollama supervisor inference and Aider coding; HTTP/profile fixtures only",
+    "native Windows ConPTY, Job Object, locking and installer acceptance tests; CI source exists but evidence must be checked",
+    "remote Linux/Ruflo CI for current source commit",
+    "independent security review and broader sandbox compatibility"
   ],
   "not_implemented": [
-    "Ruflo modules",
-    "native Windows ConPTY and installer",
-    "OS security sandbox",
+    "native Windows/macOS enforced filesystem isolation",
+    "Ruflo upstream browser/federation/autopilot/hive-mind executors",
     "fully autonomous retries or merging",
     "enforced spend budgets"
   ],
@@ -71,16 +78,68 @@
   },
   "installer_validation": {
     "installed_launcher": "agent-command",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "standalone_package": true,
     "outer_pty_tui": true,
     "embedded_shell": true,
     "ctrl_space_and_confirmed_exit": true,
-    "exit_code": 0,
-    "platform": "Linux",
-    "sudo_used": false
+    "exit_code": 0
   },
   "out_of_scope": [
     "live provider quotas"
-  ]
+  ],
+  "ruflo_validation": {
+    "version": "3.56.9",
+    "actual_mcp": true,
+    "canonical_memory_retrieved": true,
+    "route_hint": {
+      "model": "sonnet",
+      "confidence": 0.6075171066675634,
+      "uncertainty": 0.6053422299648081,
+      "complexity": 0.2508714285714286,
+      "reasoning": "Complexity: 25% | Confidence: 61% | Model: sonnet - Balanced capability and cost | Cost: 0.2x baseline",
+      "alternatives": [
+        {
+          "model": "haiku",
+          "score": 0.49825714285714284
+        },
+        {
+          "model": "opus",
+          "score": 0.37630714285714284
+        },
+        {
+          "model": "inherit",
+          "score": 0.1
+        }
+      ],
+      "inferenceTimeUs": 1000.7940000000417,
+      "costMultiplier": 0.2,
+      "implementation": "heuristic-thompson-bandit"
+    },
+    "retrieval_backend": "SmartRetrieval (RRF + MMR + Recency)",
+    "tasks_dispatched": 0,
+    "provider_credentials_passed": false
+  },
+  "sandbox_validation": {
+    "backend": "Bubblewrap 0.11.0",
+    "actual_kernel_enforcement": true,
+    "checks": {
+      "write_project": true,
+      "read_grant": true,
+      "inherited_secret": true,
+      "write_reference": true,
+      "read_denied": true,
+      "symlink_escape": true,
+      "write_denied": true,
+      "network_blocked": true
+    },
+    "environment_note": "Test wrapper dropped unusually broad ambient host capabilities before invoking Bubblewrap; procfs intentionally not mounted."
+  },
+  "windows_validation": {
+    "implemented": true,
+    "native_tests": 4,
+    "local_execution": "skipped: Linux host",
+    "status": "awaiting native Windows CI",
+    "sandbox_implemented": false
+  }
 }

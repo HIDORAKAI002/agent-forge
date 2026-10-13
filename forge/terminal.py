@@ -1,4 +1,4 @@
-"""Real POSIX PTYs, incrementally decoded output and a VT terminal surface."""
+"""POSIX PTY / Windows ConPTY, incrementally decoded output and VT surfaces."""
 from __future__ import annotations
 import codecs
 from copy import deepcopy
@@ -52,15 +52,14 @@ class ForgeScreen(pyte.HistoryScreen):
 
 class Session:
     def __init__(self, argv: list[str], cwd: str, engine: str, *, task_id: str | None = None, rows: int = 24, cols: int = 90, env: dict | None = None):
-        if os.name == "nt":
-            raise ValueError("Native Windows PTY backend is not implemented yet. Run Agent Forge in WSL.")
         self.id = str(uuid4())
         self.engine, self.cwd, self.task_id = engine, cwd, task_id
         self.status, self.exit_code, self.cancelled = "running", None, False
         self.events: queue.Queue[tuple[str, str | int]] = queue.Queue(maxsize=2000)
         self.screen = ForgeScreen(cols, rows)
         self.stream = pyte.Stream(self.screen)
-        self.process = subprocess.Popen([sys.executable, "-m", "forge.pty_broker"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
+        broker="forge.windows_broker" if os.name=="nt" else "forge.pty_broker"
+        self.process = subprocess.Popen([sys.executable, "-m", broker], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
         self._control_lock = threading.Lock()
         self._control(dict(argv=argv, cwd=cwd, env=env or dict(os.environ), rows=rows, cols=cols))
         handshake = json.loads(self.process.stderr.readline())

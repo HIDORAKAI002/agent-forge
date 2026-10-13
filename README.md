@@ -6,12 +6,12 @@
 
 ![Terminal-native workspace — Forest theme](docs/screenshots/20-forest.svg)
 
-> v0.4 development build: installer, masked-key setup, eight themes, local Ollama planning, approved dispatch and optional local dictation. Windows-native support, enforced OS sandboxing, Ruflo integration and actual-provider/device validation are unfinished; see [build status](docs/BUILD_STATUS.md).
+> v0.5 development build: pinned live Ruflo memory/routing bridge, Linux/WSL folder enforcement, native Windows ConPTY/installer source and automatic Windows/Linux validation. Windows CI evidence and native Windows isolation are separate gates; see [checklist](docs/CHECKLIST.md).
 
 
 ## Start
 
-Python **3.11+**, Git, and a UTF-8 terminal. **Linux / WSL first**; macOS uses the same POSIX backend but needs real-device validation. Native Windows PTY support is not implemented yet; use WSL.
+Python **3.11+**, Git, and a UTF-8 terminal. **Linux / WSL** use POSIX PTYs. **Native Windows 10 1809+ / Windows 11** has a ConPTY backend and PowerShell installer; real Windows validation is recorded separately, not simulated by Linux tests. macOS still needs device validation. Enforced folder isolation currently requires Linux/WSL Bubblewrap.
 
 ```bash
 git clone https://github.com/HIDORAKAI002/agent-forge.git
@@ -20,6 +20,16 @@ FORGE_VOICE=1 bash scripts/install.sh
 export PATH="$HOME/.local/bin:$PATH"
 agent-command --project /path/to/your/project
 ```
+
+Native Windows installation from an authorized checkout:
+
+```powershell
+./scripts/install.ps1 -Voice
+# Open a new terminal, then:
+agent-command --project C:\path\to\project
+```
+
+The Windows installer adds the user-local command directory to the user PATH unless `FORGE_CONFIGURE_PATH=0`. It does not silently change PowerShell execution policy or install system prerequisites. Standard npm shims resolve to native Node entrypoints so generated task text is not evaluated through `cmd.exe`; other batch shims require an explicitly configured native executable.
 
 `agent-command` is a **placeholder launch name**, not the final brand. Set `FORGE_COMMAND=my-command` during installation to choose another valid name. The installer uses `~/.local/share/agent-forge/venv` and `~/.local/bin` by default, without sudo. It copies the package, so the checkout is not a runtime dependency. `FORGE_INSTALL_ROOT` / `FORGE_BIN_ROOT` override the install locations. To omit voice dependencies, leave out `FORGE_VOICE=1`. Python 3.11+ and system audio libraries remain prerequisites.
 
@@ -32,7 +42,7 @@ Already inside a project? `forge` uses the current directory. `forge --project /
 ## The interface
 
 - **Eight themes:** Nebula, Ember, Forest, Ocean, Sakura, Solar, Glacier and Graphite with terminal-native borders, stippled textures, tabbed views, and a bottom command deck.
-- **Setup (F7):** masked provider keys, session/OS-vault storage, native CLI launch, routing tiers, theme picker and voice setup.
+- **Setup (F7):** masked keys, routing, themes, voice, reviewed folder permissions and pinned Ruflo controls.
 - **Plan (F8):** local supervisor draft → human queue approval → authorized bounded dispatch.
 - **Agents:** real CLI terminal surfaces; select a session and type directly. `Ctrl+C` reaches the focused CLI.
 - **Missions:** guided task editor, a dependency-aware ledger, isolated Git worktrees, and explicit launch/review confirmations.
@@ -57,6 +67,31 @@ Choose each installed coding engine's tier in **Setup**. High-risk tasks prefer 
 **Dispatch** asks for approval of up to 20 queued tasks and then starts ready work automatically, with at most two task sessions. CLI command changes revoke queued permissions. Tasks still require human review, and prerequisite changes must be merged manually before dependent work. **Pause** cancels future launch grants but does not stop already running CLIs. No automatic retries or merges occur. Use session stop controls to stop active processes.
 
 A selected local model also creates an **Aider local coder** profile: `aider --model ollama_chat/MODEL`. Install Aider separately using its [official instructions](https://aider.chat/docs/llms/ollama.html). That profile can perform coding tasks in worktrees; the standalone Ollama chat profile cannot edit files by itself. Automatic commits are disabled and native confirmations remain enabled. Actual model/harness combinations need real-device validation.
+
+## Folder permissions and Ruflo
+
+Open **Setup → Permissions** or `/sandbox`. Review and confirm:
+
+- The selected project is the only **persistently writable** host folder.
+- Separately approved reference/runtime directories are mounted **read-only**.
+- Other user directories are absent from the sandbox; symlinks do not grant access to hidden targets.
+- Standard `/usr`, `/bin`, `/sbin`, `/lib`, `/lib64` runtime trees and selected certificate/resolver configuration are read-only exceptions. Disposable temporary HOME/tmp are writable. Host procfs is not mounted.
+- Network is blocked by default. Allowing networking permits the **host network**, including local Ollama; it is not a provider-domain-only firewall.
+- Inherited SSH sockets, unrelated API keys and startup environment hooks are removed. Only the selected engine's managed credentials are passed in its process environment—not command arguments.
+
+Install **Bubblewrap** using your distribution's official packages first. Install Forge outside the writable project and explicitly approve any additional user-local CLI/package directories needed as read-only runtime grants. OAuth/cache behavior and CLI combinations need compatibility testing; there is no silent unsandboxed fallback. Permissions affect **new sessions only** and clear future dispatch grants. Existing sessions retain their launch policy, shown per session. Native Windows/macOS enforcement is **not implemented**; ConPTY is a terminal backend, not isolation.
+
+For the optional Ruflo integration:
+
+```bash
+npm install -g ruflo@3.56.9
+```
+
+Choose **Connect Ruflo** in Setup, then **Sync memories** or `/ruflo search QUERY`. The version is checked before use. Connecting authorizes initial local embedding downloads. This is trusted host-side software, not a sandboxed agent; provider keys and SSH sockets are not inherited. Forge SQLite is authoritative; Ruflo stores a derived index. Retrieved IDs are rehydrated from current Forge records, never trusted as independently verified content.
+
+When connected, **Make plan** retrieves relevant memories and obtains an advisory `hooks_model-route` hint before calling the selected Ollama planner. Ruflo's hint does not override user engine tiers or authorize paid calls. Forge still performs real CLI dispatch and review gates. No Ruflo browser/federation/autopilot executors are enabled. Some upstream orchestration endpoints only schedule records; we do not present that as actual agent execution. This is a defined memory/routing integration, **not every Ruflo feature imported wholesale**.
+
+![Actual pinned Ruflo connection](docs/screenshots/33-ruflo-connected.svg)
 
 ## Voice typing
 
@@ -216,11 +251,11 @@ This is a schema example: `my-worker` must actually exist and implement the argu
 
 ## Safety and compatibility
 
-- **Not an OS sandbox.** Worktrees reduce edit collisions; a CLI can still access anything allowed by its OS account. Native provider approvals remain authoritative.
-- No automatic paid-model calls, merges, pushes, provider installation, remote listener or telemetry.
+- **OFF mode is unrestricted.** Worktrees alone are not a sandbox. Linux/WSL Bubblewrap is an explicit, reviewed option with documented runtime/tmp exceptions; native Windows/macOS isolation is missing.
+- No paid-model dispatch without approval, automatic merges/pushes, unconfirmed provider installation or remote listener. External provider/Ruflo dependencies retain their own behavior and policies.
 - Only use trusted projects and CLIs. A custom executable/profile is executable code, not a safe document.
 - Terminal output is rendered through a VT emulator, not written directly into the parent terminal; OSC clipboard/link escape sequences are not executed by the renderer. Full modern terminal protocol coverage is not guaranteed.
-- Cursor movement, truecolor/ANSI styles, resize, UTF-8 input, standard control/navigation keys, bracketed paste and primary/alternate screen handling are implemented. Advanced mouse reporting, Kitty graphics/keyboard extensions, sixel, native ConPTY and advanced scrollback navigation are not implemented.
+- Cursor movement, truecolor/ANSI styles, resize, UTF-8 input, standard control/navigation keys, bracketed paste and primary/alternate screen handling are implemented. Advanced mouse reporting, Kitty graphics/keyboard extensions, sixel and advanced scrollback navigation are not implemented. ConPTY source is added and requires native Windows acceptance evidence.
 - Ctrl+Q, F1–F8 and Ctrl+Space are reserved by the host. They are not passed through to a focused CLI. Avoid putting secrets into command history, tasks, mail, memory or screenshots.
 - A dedicated, single-threaded PTY broker avoids forkpty from the multi-threaded TUI. Stop terminates known descendants and escalates if necessary. Malicious or independently detached processes can escape lifecycle tracking; this is not a security boundary.
 - Memory, tasks and mail persist locally; live terminal sessions do not resume after app restart. Interrupted tasks are marked failed and never rerun automatically. Existing worktrees are preserved for manual inspection.
@@ -234,9 +269,10 @@ python -m pytest -q
 python scripts/capture_tui.py
 python scripts/capture_ollama.py
 python scripts/capture_v04.py
+python scripts/capture_v05.py
 ```
 
-**v0.4 automated validation is recorded in [VALIDATION.json](docs/VALIDATION.json)**, including the original terminal/memory/MCP regressions, Ollama fixtures, credential scoping, routing, planner/dispatch, dictation drafts and installer guards. Fifteen v0.4 TUI states were visually inspected individually: setup, provider controls, all eight themes, planner preview, queue approval, voice controls, a real public-sample transcription draft and compact 100×36 setup. Planner screenshots are labeled fixtures, not model-generated evidence.
+**v0.5 automated validation is recorded in [VALIDATION.json](docs/VALIDATION.json)**, including the original terminal/memory/MCP regressions, Ollama fixtures, credential scoping, routing, planner/dispatch, dictation drafts and installer guards. Fifteen v0.4 TUI states were visually inspected individually: setup, provider controls, all eight themes, planner preview, queue approval, voice controls, a real public-sample transcription draft and compact 100×36 setup. Planner screenshots are labeled fixtures, not model-generated evidence. Five v0.5 states were inspected separately, including a real Ruflo MCP connection and SmartRetrieval result.
 
 The tests cover persistent memory, concurrent writers, dependencies, mail acknowledgment, project ownership, real Linux PTY input/controlling TTY, resize, cancellation, parallel **fixture** agents in worktrees, alternate screens, explicit routing policy, guided TUI editing, keyboard focus, compact layout, and **two actual stdio MCP clients**.
 
@@ -249,15 +285,17 @@ No provider account or real Claude/Codex/Gemini model was used in these tests. T
 1. Validate installed Claude/Codex/Gemini/Kimi/Aider and Ollama model versions, permissions and real-device behavior.
 2. Harden the implemented supervised planner/dispatcher with real-model evaluations and acceptance checks.
 3. Attach project memory/mail MCP automatically only with consent, preserving existing provider configuration.
-4. Integrate audited Ruflo modules behind the coordinator interface; no competing memory/scheduler authorities.
+4. Extend the implemented pinned Ruflo memory/routing bridge only after auditing additional modules; no competing authorities.
 5. Keep provider quota tracking out of required scope; retain explicit paid-task authorization and honest user-defined tier labels.
 6. Validate the implemented optional local dictation on microphone devices; improve speech-model/device selection and accessibility.
-7. Native Windows ConPTY, protocol coverage/scrollback, accessibility, migrations/backups and packaging.
+7. Verify native Windows ConPTY/installer CI; implement native Windows isolation, improve protocol/accessibility/backups and packaging.
 
 ## Design references and license
 
 The terminal UX direction follows the user's [AI Video Dubbing](https://github.com/HIDORAKAI002/ai-video-dubbing) Textual studio: live workspace, side rail, and bottom slash-command input. This implementation is original; it does not include the unrelated dubbing pipeline or the earlier Electron prototype.
 
-Integration candidates, **not vendored**: [Ruflo](https://github.com/ruvnet/ruflo), [Handy](https://github.com/cjpais/Handy), [Agent Client Protocol](https://github.com/agentclientprotocol/agent-client-protocol), [Beads](https://github.com/gastownhall/beads).
+External references, **not vendored** (Ruflo memory/routing adapter is implemented): [Ruflo](https://github.com/ruvnet/ruflo), [Handy](https://github.com/cjpais/Handy), [Agent Client Protocol](https://github.com/agentclientprotocol/agent-client-protocol), [Beads](https://github.com/gastownhall/beads).
 
 Original code: MIT. Dependencies and any future speech models retain their own licenses; notably, pyte is LGPLv3 and is separately installed. See [third-party notices](docs/THIRD_PARTY.md) before bundling a distribution. Do not copy GPL/AGPL voice-app source into a differently licensed distribution without reviewing the obligations.
+
+Native Windows/Linux/Ruflo CI records are published automatically to the `validation` branch under `docs/ci/`. Check `source_commit` against the desired release; an older pass is not evidence for a newer commit. Device, provider-account and security limitations remain in [CHECKLIST.md](docs/CHECKLIST.md).

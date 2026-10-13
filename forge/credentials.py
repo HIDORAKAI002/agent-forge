@@ -4,6 +4,7 @@ Do not call repr() on secrets or include them in shell arguments. Native CLIs
 remain trusted processes and retain their own authentication policies.
 """
 from __future__ import annotations
+import os
 import threading
 import subprocess
 import queue
@@ -19,6 +20,7 @@ INSTALL_COMMANDS={
     'codex':'npm install -g @openai/codex',
     'gemini':'npm install -g @google/gemini-cli',
 }
+if os.name=='nt':INSTALL_COMMANDS['claude']='irm https://claude.ai/install.ps1 | iex'
 SERVICE='agent-forge.provider-keys'
 ALLOWED_VAULTS=('keyring.backends.macOS','keyring.backends.Windows','keyring.backends.SecretService','keyring.backends.kwallet')
 
@@ -95,7 +97,12 @@ class Credentials:
         self.busy=True
         def worker():
             try:
-                result=subprocess.run(['codex','-c','cli_auth_credentials_store="keyring"','login','--with-api-key'],input=key+'\n',text=True,capture_output=True,timeout=40)
+                argv=['codex','-c','cli_auth_credentials_store="keyring"','login','--with-api-key']
+                kwargs={}
+                if os.name=='nt':
+                    from .platform_support import windows_command
+                    argv,env=windows_command(argv,dict(os.environ));kwargs['env']=env
+                result=subprocess.run(argv,input=key+'\n',text=True,capture_output=True,timeout=40,**kwargs)
                 message='Codex CLI authentication completed' if result.returncode==0 else 'Codex authentication failed; inspect native CLI setup (provider output suppressed to protect credentials)'
             except Exception: message='Codex authentication could not complete; check CLI version and OS vault'
             if not self.closed:self.events.put(message)

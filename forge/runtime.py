@@ -13,18 +13,12 @@ from .terminal import Session
 
 class Runtime:
     def __init__(self, project: str | Path):
-        if os.name == "nt":
-            raise ValueError("Use WSL for v0.3; native Windows PTY support is still pending")
         self.store = Store(project)
-        # Only the TUI owns recovery. Independent memory/MCP clients never reset live tasks.
-        import fcntl
-        self.lock_file = managed(self.store.directory, "workspace.lock").open("a+")
+        from .platform_support import WorkspaceLock
         try:
-            fcntl.flock(self.lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            self.lock_file.close()
-            self.store.close()
-            raise ValueError("Another Agent Forge workspace already owns this project")
+            self.lock_file=WorkspaceLock(managed(self.store.directory,"workspace.lock"))
+        except Exception:
+            self.store.close();raise
         try:
             self.profiles = profiles(self.store.project)
         except Exception:
@@ -32,6 +26,10 @@ class Runtime:
             raise
         from .credentials import Credentials
         self.credentials = Credentials()
+        from .sandbox import Sandbox
+        try:self.sandbox=Sandbox(self.store.project)
+        except Exception:
+            self.credentials.close();self.lock_file.close();self.store.close();raise
         self.sessions: dict[str, Session] = {}
         for task in self.store.tasks():
             if task["status"] == "running":
@@ -49,7 +47,10 @@ class Runtime:
             env["OLLAMA_API_BASE"] = endpoint()
         if env_overrides:
             env.update(env_overrides)
-        session = Session(self.profiles[engine].command(prompt), str(cwd or self.store.project), engine, task_id=task_id, env=env)
+        working=cwd or self.store.project
+        argv,env=self.sandbox.wrap(self.profiles[engine].command(prompt),working,env,self.credentials.environment(engine))
+        session = Session(argv, str(working), engine, task_id=task_id, env=env)
+        session.isolation="ENFORCED / Bubblewrap" if self.sandbox.policy["enabled"] else "OFF / host permissions"
         self.sessions[session.id] = session
         return session
 

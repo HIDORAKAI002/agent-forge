@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-forge-tui"
-version = "0.4.0"
+version = "0.5.0"
 description = "A terminal-native multi-agent coding workstation"
 requires-python = ">=3.11"
 license = "MIT"
-dependencies = ["textual>=1,<9", "pyte>=0.8.2,<0.9", "psutil>=6,<8", "ptyprocess>=0.7,<1; sys_platform != 'win32'"]
+dependencies = ["textual>=1,<9", "pyte>=0.8.2,<0.9", "psutil>=6,<8", "ptyprocess>=0.7,<1; sys_platform != 'win32'", "pywinpty>=3.0.5,<4; sys_platform == 'win32'"]
 
 [project.optional-dependencies]
 mcp = ["mcp>=1,<2"]

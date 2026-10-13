@@ -1,5 +1,6 @@
 """Full-screen, keyboard-first terminal interface. No Electron and no browser host."""
 from __future__ import annotations
+import os
 import json
 import shlex
 from pathlib import Path
@@ -31,7 +32,7 @@ from .planner import Planner, DispatchBatch, queue_plan, validate_plan
 from .voice import Voice, MODELS
 from .store import managed
 
-COMMANDS = ["/setup", "/plan", "/dispatch", "/pause", "/voice", "/models", "/tutorial", "/ollama", "/help", "/launch", "/sessions", "/focus", "/stop", "/task", "/tasks", "/run", "/approve", "/remember", "/memory", "/send", "/inbox", "/ack", "/engines", "/route", "/theme", "/quit"]
+COMMANDS = ["/sandbox", "/ruflo", "/setup", "/plan", "/dispatch", "/pause", "/voice", "/models", "/tutorial", "/ollama", "/help", "/launch", "/sessions", "/focus", "/stop", "/task", "/tasks", "/run", "/approve", "/remember", "/memory", "/send", "/inbox", "/ack", "/engines", "/route", "/theme", "/quit"]
 KEY_BYTES = {"enter":"\r", "tab":"\t", "shift+tab":"\x1b[Z", "backspace":"\x7f", "escape":"\x1b", "up":"\x1b[A", "down":"\x1b[B", "right":"\x1b[C", "left":"\x1b[D", "home":"\x1b[H", "end":"\x1b[F", "delete":"\x1b[3~", "insert":"\x1b[2~", "pageup":"\x1b[5~", "pagedown":"\x1b[6~"}
 ANSI_COLORS = {"default":"#d9e4f4", "black":"#172236", "red":"#f37e91", "green":"#78ddae", "brown":"#f2ca7c", "blue":"#75a7ff", "magenta":"#c3a0ff", "cyan":"#75dcf0", "white":"#e4edfa", "brightblack":"#788aa5", "brightred":"#ff95a7", "brightgreen":"#9bf6c6", "brightbrown":"#ffe49b", "brightblue":"#a3c4ff", "brightmagenta":"#d7b5ff", "brightcyan":"#9df1ff", "brightwhite":"#ffffff"}
 
@@ -246,6 +247,7 @@ class ForgeApp(App):
     TabPane { padding: 0; }
     Tabs { background: #111c30; }
     #conversation { height: 1fr; padding: 1 2; border: round #527b99; background: #0c1423; }
+    .permission-paths { height: 6; margin: 0 1; }
     #terminal-meta { height: 2; padding: 0 1; color: #88def1; }
     #terminal-view { height: 1fr; min-height: 4; padding: 0 1; border: round #356d89; background: #090e18; }
     #terminal-view:focus { border: heavy #65d7ff; }
@@ -310,6 +312,9 @@ class ForgeApp(App):
         for name,(primary,secondary,background) in PALETTES.items():
             self.register_theme(Theme(name="forge-"+name,primary=primary,secondary=secondary,accent=secondary,foreground="#d9e4f4",background=background,surface=surface(background,primary,.07),panel=surface(background,primary,.11),success="#78ddae",warning="#e1bc7c",error="#ff93a8",dark=True))
         self.palette = self.preferences.data["theme"]
+        from .ruflo import RufloBridge
+        self.ruflo=RufloBridge(self.runtime.store)
+        self.pending_plan=None;self.ruflo_hint="No routing hint requested"
         self.planner = Planner()
         self.dispatch = DispatchBatch()
         self.voice = Voice(self.preferences.root/"speech-models")
@@ -410,6 +415,21 @@ class ForgeApp(App):
                             yield Select([(v.title(),v) for v in ("strong","free","economy","local","unknown")],value="unknown",allow_blank=False,id="route-tier")
                             yield Button("Save routing tier",id="setup-route")
                             yield Static("Routine: local → free → economy → unknown → strong. High risk: strong first, then available fallbacks. Tier labels do not guarantee capability or price; inspect the draft's selected engine before dispatch. Live provider quotas are intentionally out of scope.",classes="setup-note",markup=False)
+                            yield Static("PERMISSIONS / enforced project folder boundary",classes="setup-section",id="sandbox-section")
+                            yield Select([("Off — native host permissions",False),("Enforce — Linux/WSL Bubblewrap",True)],value=self.runtime.sandbox.policy["enabled"],allow_blank=False,id="sandbox-enabled")
+                            yield Static("Approved read-only reference/runtime folders — one full path per line",classes="setup-note",markup=False)
+                            yield TextArea("\n".join(self.runtime.sandbox.policy["read_only"]),id="sandbox-grants",classes="permission-paths")
+                            yield Select([("Network blocked",False),("Allow host network — providers / local Ollama",True)],value=self.runtime.sandbox.policy["network"],allow_blank=False,id="sandbox-network")
+                            yield Button("Review permissions",id="setup-sandbox-save")
+                            yield Static(id="sandbox-status",markup=False)
+                            yield Static("Only the project is persistently writable. Approved references and standard OS runtime trees are read-only; temporary HOME/tmp are disposable. Other user folders and host procfs are hidden. Install Forge outside the project. Bubblewrap is required; unsupported hosts fail closed. Grants apply to NEW sessions; existing sessions retain their old permissions. Network allowance exposes host networking, not a provider-only firewall. Native Windows/macOS isolation is not available.",classes="setup-note",markup=False)
+                            yield Static("RUFLO / pinned memory retrieval + advisory routing",classes="setup-section",id="ruflo-section")
+                            yield Static("Install separately: npm install -g ruflo@3.56.9 (Node.js 20+). Connect allows initial local embedding-weight downloads. Provider keys are not passed. Forge SQLite remains authoritative; Ruflo is a derived index. Ruflo service is trusted host-side software, NOT a sandboxed agent.",classes="setup-note",markup=False)
+                            with Horizontal(classes="model-actions"):
+                                yield Button("Connect Ruflo",id="setup-ruflo-connect")
+                                yield Button("Sync memories",id="setup-ruflo-sync")
+                                yield Button("Disconnect",id="setup-ruflo-close")
+                            yield Static(id="ruflo-status",markup=False)
                             yield Static("VOICE / optional local dictation",classes="setup-section")
                             yield Select([(name,name) for name in MODELS],value=self.preferences.data["voice_model"],allow_blank=False,id="voice-model")
                             with Horizontal(classes="model-actions"):
@@ -418,7 +438,7 @@ class ForgeApp(App):
                                 yield Button("Discard audio",id="setup-voice-discard")
                             yield Static(id="voice-status",markup=False)
                             yield Static("Install with FORGE_VOICE=1 bash scripts/install.sh. Linux capture may require PortAudio. Preparing downloads speech weights from Hugging Face with your confirmation; later transcription runs locally. Audio stays in RAM and is cleared after processing. Microphone/model-loading progress is indeterminate, not a fabricated percentage. Maximum recording: 60 seconds.",classes="setup-note",markup=False)
-                            yield Static("PLATFORM / Linux and WSL first. macOS needs device validation. Native Windows and enforced OS sandboxing are not implemented. Ruflo source is not vendored or enabled.",classes="setup-note",markup=False)
+                            yield Static("PLATFORM / Native Windows ConPTY backend added; Windows CI/device validation pending. Linux/WSL folder enforcement uses Bubblewrap. Ruflo is an optional pinned MCP integration; not vendored.",classes="setup-note",markup=False)
                             yield Button("Finish setup / go to Models",id="setup-finish",variant="primary")
                 yield Static(id="activity", markup=False)
         with Horizontal(id="toolbar"):
@@ -435,6 +455,7 @@ class ForgeApp(App):
         self.ollama.close()
         self.planner.close()
         self.voice.close()
+        self.ruflo.close()
         self.dispatch.pause()
         if hasattr(self, "_pump_timer"):
             self._pump_timer.stop()
@@ -499,7 +520,7 @@ class ForgeApp(App):
         head.append("\n   " + "─" * max(10, min(self.size.width - 8, 150)), style="#344866")
         self.ui("#masthead", Static).update(head)
         metrics = Text(f" ◉ {running:02d} LIVE   │   ≡ {len(tasks):02d} TASKS   │   ◇ {len(store.memories(limit=500)):02d} MEMORIES   │   REVIEW-GATED DISPATCH", style=a)
-        metrics.append(f"   │   {self.palette.upper()} / v0.4", style=b)
+        metrics.append(f"   │   {self.palette.upper()} / v0.5", style=b)
         self.ui("#metrics", Static).update(metrics)
         self.ui("#policy", Static).update(Text("ROUTING / POLICY\nUser-set cost tiers\n/run asks before launch\nNo automatic merges", style="#dac298"))
         session_signature = json.dumps([(s.id, s.engine, s.status) for s in self.runtime.sessions.values()])
@@ -536,6 +557,19 @@ class ForgeApp(App):
         if self._forge_closing or not getattr(self, "workspace_screen", None) or not self.workspace_screen.is_mounted or not self.workspace_screen.query("#masthead"):
             return
         self.ollama.poll()
+        for kind,value in self.ruflo.poll():
+            if kind=="error":
+                self.pending_plan=None;self.planner.state=value['message'];self.say(value['message'])
+            elif kind=="context" and self.pending_plan:
+                selected,goal=self.pending_plan;self.pending_plan=None
+                hint=value.get('route_hint',{});self.ruflo_hint="Upstream hint: "+str(hint.get('model','unknown'))+" / "+str(hint.get('implementation','not reported'))+"; user tiers still control engines"
+                try:self.planner.start(self.ollama.api,selected,goal,value.get('memories',[]))
+                except Exception as error:self.error(error)
+            elif kind=="search":
+                self.action_tab('workbench');self.ui('#conversation').display=True;self.ui('#terminal-view').display=False
+                self.say("Ruflo retrieval: "+value.get('retrieval_backend','not reported'))
+                for memory in value.get('memories',[]):self.say(f"[{memory['kind']}; {'verified' if memory['verified'] else 'unverified'}] {memory['text']}")
+
         if self.planner.poll() and self.planner.draft:
             draft={'tasks':[dict(title=t['title'],instructions=t['prompt'],risk=t['risk'],depends_on=t['depends_on']) for t in self.planner.draft]}
             self.ui("#planner-draft",TextArea).load_text(json.dumps(draft,indent=2))
@@ -563,6 +597,7 @@ class ForgeApp(App):
         self.ollama.close()
         self.planner.close()
         self.voice.close()
+        self.ruflo.close()
         self.dispatch.pause()
 
     def refresh_engines(self):
@@ -689,7 +724,7 @@ class ForgeApp(App):
         self.ui("#conversation").display = False
         self.ui("#terminal-view").display = True
         self.ui("#terminal-meta").display = True
-        self.ui("#terminal-meta", Static).update(f"{session.engine} / {session.id[:8]} · {session.cwd} · Ctrl+Space returns to commands")
+        self.ui("#terminal-meta", Static).update(f"{session.engine} / {session.id[:8]} · {session.cwd} · {getattr(session,'isolation','OFF / host permissions')} · Ctrl+Space returns to commands")
         self.ui("#terminal-view", TerminalSurface).attach(session)
         self.refresh_state()
 
@@ -709,7 +744,7 @@ class ForgeApp(App):
         table = Table(title="COMMAND DECK", border_style="#685791")
         table.add_column("Command", style="#65d7ff")
         table.add_column("Action", style="#c4d2e8")
-        for command, description in [("/setup · F7", "Provider keys, theme picker, routing and local dictation"), ("/plan · F8", "Local supervisor plan; preview/edit before queueing"), ("/dispatch · /pause", "Authorize bounded ready-task dispatch / stop future launches"), ("/voice", "Local speech draft; never auto-submit"), ("/models · /tutorial", "Local Ollama selection, live layer % and setup guide"), ("/ollama pull|use <model>", "Confirm download; preload and persist local operator"), ("/launch <engine>", "Embed a real CLI; no API simulation"), ("/focus <session-id>", "Return to a terminal; Ctrl+C goes to the CLI"), ("/task", "Guided task editor; does not launch work"), ("/task <engine> <title> :: <prompt>", "Create a queued task"), ("/run <task-id>", "Confirm isolated task execution"), ("/approve <task-id>", "Record human review; no merge"), ("/remember <fact|decision|handoff> <text>", "Save human-verified project context"), ("/memory [search]", "Inspect/filter persistent memory"), ("/send <from> <to> <text>", "Send project-local agent mail"), ("/inbox <name> /ack <id> <recipient>", "Read or acknowledge durable mail"), ("/route <routine|high>", "Recommend a user-configured tier; never dispatch"), ("/theme <name>", "Eight saved terminal palettes; Setup has a picker"), ("/stop <session-id>", "Confirm process-group termination"), ("/quit", "Confirm stopping running sessions and exit")]:
+        for command, description in [("/sandbox", "Project write scope, approved read-only references and network permission"), ("/ruflo connect|sync|search QUERY|off", "Pinned semantic-memory index and advisory routing; no agent execution"), ("/setup · F7", "Provider keys, theme picker, routing and local dictation"), ("/plan · F8", "Local supervisor plan; preview/edit before queueing"), ("/dispatch · /pause", "Authorize bounded ready-task dispatch / stop future launches"), ("/voice", "Local speech draft; never auto-submit"), ("/models · /tutorial", "Local Ollama selection, live layer % and setup guide"), ("/ollama pull|use <model>", "Confirm download; preload and persist local operator"), ("/launch <engine>", "Embed a real CLI; no API simulation"), ("/focus <session-id>", "Return to a terminal; Ctrl+C goes to the CLI"), ("/task", "Guided task editor; does not launch work"), ("/task <engine> <title> :: <prompt>", "Create a queued task"), ("/run <task-id>", "Confirm isolated task execution"), ("/approve <task-id>", "Record human review; no merge"), ("/remember <fact|decision|handoff> <text>", "Save human-verified project context"), ("/memory [search]", "Inspect/filter persistent memory"), ("/send <from> <to> <text>", "Send project-local agent mail"), ("/inbox <name> /ack <id> <recipient>", "Read or acknowledge durable mail"), ("/route <routine|high>", "Recommend a user-configured tier; never dispatch"), ("/theme <name>", "Eight saved terminal palettes; Setup has a picker"), ("/stop <session-id>", "Confirm process-group termination"), ("/quit", "Confirm stopping running sessions and exit")]:
             table.add_row(command, description)
         self.say(table)
         self.action_composer()
@@ -829,13 +864,18 @@ class ForgeApp(App):
             self.ui("#route-tier",Select).value=self.runtime.profiles[str(event.value)].tier
 
     def refresh_setup(self):
+        self.ui("#sandbox-status",Static).update(self.runtime.sandbox.summary())
+        self.ui("#ruflo-status",Static).update(self.ruflo.state+"\n"+self.ruflo_hint)
         provider=str(self.ui("#key-provider",Select).value)
         self.ui("#provider-install-command",Static).update("INSTALL / "+INSTALL_COMMANDS[provider]+"\nInstall CLI asks before running this official command. npm installs need Node.js; no sudo is added.")
         self.ui("#key-status",Static).update(self.runtime.credentials.storage_label+"\n"+self.key_status)
         self.ui("#planner-status",Static).update(self.planner.state+f" · {len(self.dispatch.grants)} authorized tasks waiting")
         self.ui("#voice-status",Static).update(f"Voice dependencies: {'installed' if self.voice.available else 'not installed'} · prepared {self.voice.model_name or 'none'} · {self.voice.state} · {self.voice.seconds:.1f}s captured")
+        self.ui("#setup-ruflo-connect",Button).disabled=self.ruflo.enabled
+        self.ui("#setup-ruflo-sync",Button).disabled=not self.ruflo.connected or self.ruflo.busy
+        self.ui("#setup-ruflo-close",Button).disabled=not self.ruflo.enabled
         self.ui("#setup-save-key",Button).disabled=self.runtime.credentials.busy
-        self.ui("#plan-generate",Button).disabled=self.planner.busy
+        self.ui("#plan-generate",Button).disabled=self.planner.busy or self.ruflo.busy or self.pending_plan is not None
         self.ui("#setup-voice-prepare",Button).disabled=self.voice.busy or self.voice.recording
         self.ui("#setup-voice-record",Button).disabled=self.voice.busy
         self.ui("#setup-voice-record",Button).label="Stop + transcribe" if self.voice.recording else "Record"
@@ -845,7 +885,15 @@ class ForgeApp(App):
             self.ui("#route-engine",Select).set_options(options);self.cache["route-options"]=signature
 
     def setup_action(self,action):
-        if action=="setup-install-cli":
+        if action=="setup-sandbox-save":
+            policy=self.runtime.sandbox.validate(dict(enabled=self.ui("#sandbox-enabled",Select).value,network=self.ui("#sandbox-network",Select).value,read_only=[v.strip() for v in self.ui("#sandbox-grants",TextArea).text.splitlines() if v.strip()]))
+            body=f"Apply permissions to new sessions only? Existing sessions are unchanged; dispatch grants will be cleared. Mode: {'ENFORCE' if policy['enabled'] else 'OFF / full host permissions'}. Network: {'not restricted while mode is OFF' if not policy['enabled'] else 'host network allowed' if policy['network'] else 'blocked'}. Project writable: {self.runtime.store.project}. References read-only:\n"+"\n".join(policy['read_only'])
+            self.push_screen(ConfirmScreen("REVIEW FOLDER PERMISSIONS",body),lambda approved:self.save_permissions(policy) if approved else None)
+        elif action=="setup-ruflo-connect":
+            self.push_screen(ConfirmScreen("CONNECT PINNED RUFLO", "Start installed Ruflo 3.56.9 MCP as trusted host-side software? It can download local embedding weights and index up to 500 project memories on request. No provider keys are passed; no paid model or agent is launched. This does NOT sandbox the Ruflo service itself."),lambda approved:self.connect_ruflo() if approved else None)
+        elif action=="setup-ruflo-sync":self.ruflo.request("sync")
+        elif action=="setup-ruflo-close":self.ruflo.close();self.pending_plan=None
+        elif action=="setup-install-cli":
             provider=str(self.ui("#key-provider",Select).value)
             if provider in ("codex","gemini") and not shutil.which("npm"):
                 raise ValueError("Install Node.js LTS / npm first (https://nodejs.org); no system package installer was run")
@@ -889,7 +937,9 @@ class ForgeApp(App):
             selected=self.ollama.settings.get("selected_model")
             if not selected:raise ValueError("Activate a local operator in Models first")
             goal=self.ui("#planner-goal",TextArea).text
-            self.planner.start(self.ollama.api,selected,goal,self.runtime.store.memories(limit=20))
+            if self.ruflo.enabled:
+                self.ruflo.request("context",goal);self.pending_plan=(selected,goal);self.planner.state="Waiting for Ruflo memory retrieval / advisory route"
+            else:self.planner.start(self.ollama.api,selected,goal,self.runtime.store.memories(limit=20))
         elif action=="plan-queue":
             raw=json.loads(self.ui("#planner-draft",TextArea).text)
             draft=validate_plan(raw)
@@ -900,10 +950,20 @@ class ForgeApp(App):
         elif action=="plan-pause":self.dispatch.pause()
         self.refresh_setup()
 
+    def save_permissions(self,policy):
+        try:
+            self.runtime.sandbox.save(policy);self.dispatch.pause();self.refresh_setup()
+        except Exception as error:self.error(error)
+
+    def connect_ruflo(self):
+        try:self.ruflo.enable()
+        except Exception as error:self.error(error)
+
     def install_provider(self,provider):
         engine="install-"+provider
         try:
-            self.runtime.profiles[engine]=Profile(engine,"Installer / "+provider,("/bin/bash","-o","pipefail","-c",INSTALL_COMMANDS[provider]))
+            argv=("powershell.exe","-NoLogo","-NoProfile","-Command",INSTALL_COMMANDS[provider]) if os.name=="nt" else ("/bin/bash","-o","pipefail","-c",INSTALL_COMMANDS[provider])
+            self.runtime.profiles[engine]=Profile(engine,"Installer / "+provider,argv)
             session=self.runtime.launch(engine)
             self.runtime.profiles.pop(engine,None)
             self.focus_session(session)
@@ -971,7 +1031,16 @@ class ForgeApp(App):
 
     def execute(self, command: str):
         name, _, rest = command.partition(" ")
-        if name=="/setup":self.action_tab("setup")
+        if name=="/ruflo":
+            operation,_,query=rest.partition(" ")
+            if operation=="search":self.ruflo.request("search",query)
+            elif operation=="sync":self.ruflo.request("sync")
+            elif operation=="off":self.ruflo.close();self.pending_plan=None
+            elif operation=="connect":self.setup_action("setup-ruflo-connect")
+            else:raise ValueError("/ruflo connect|sync|search QUERY|off")
+        elif name=="/sandbox":
+            self.action_tab('setup');self.ui('#setup-scroll').scroll_to_widget(self.ui('#sandbox-enabled'))
+        elif name=="/setup":self.action_tab("setup")
         elif name=="/plan":
             self.action_tab("planning")
             if rest:self.ui("#planner-goal",TextArea).load_text(rest)
