@@ -1,0 +1,19 @@
+{
+  "actual_aider": "0.86.2",
+  "aider_python": "3.12.15",
+  "model": "qwen2.5-coder:1.5b",
+  "actual_model_weights": true,
+  "host": "loopback-only Ollama 0.6.8",
+  "hardware": "CPU",
+  "paid_provider_calls": 0,
+  "actual_runtime_worktree_dispatch": true,
+  "native_confirmations_disabled": false,
+  "authorized_file": "calculator.py",
+  "task_status": "needs-review",
+  "generated_code": "def add(a, b):\n    return a + b\n",
+  "assertion_add_2_3": 5,
+  "original_project_unchanged": true,
+  "automatic_commit_or_merge": false,
+  "sandbox_active": false,
+  "scope": "One bounded file smoke test using a configured Aider profile; not a coding benchmark or sandbox compatibility acceptance."
+}

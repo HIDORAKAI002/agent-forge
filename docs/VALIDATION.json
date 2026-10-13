@@ -51,8 +51,8 @@
     "real microphone and PortAudio devices",
     "actual OS credential stores and Codex account authentication; fixture tests only",
     "native provider installers executing on a user machine",
-    "Actual Aider coding integration; real supervisor inference passed separately",
-    "independent security review and broader sandbox compatibility"
+    "independent security review and broader sandbox compatibility",
+    "Aider sandbox/cache/auth compatibility and wider real coding tasks; bounded unsandboxed local worktree task passed"
   ],
   "not_implemented": [
     "native Windows/macOS enforced filesystem isolation",
@@ -173,14 +173,14 @@
     "evidence_note": "Actual daemon/model run completed before the workspace was restored from an older snapshot. Evidence recovered from committed session events; not a newly executed inference in the restored environment."
   },
   "ci_acceptance": {
-    "source_commit": "d683d8f8624e01f1b5402e997f868c4aea196c60",
-    "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38351513079",
+    "source_commit": "636c6be4cf66efab1f31b73e5aff4884f7a5f1ed",
+    "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38356388507",
     "linux_3.11": {
-      "passed": 75,
+      "passed": 76,
       "skipped": 5
     },
     "linux_3.13": {
-      "passed": 75,
+      "passed": 76,
       "skipped": 5
     },
     "windows_3.11": {
@@ -196,5 +196,29 @@
       "skipped": 0
     },
     "note": "All five suites passed this exact source. Later changes need their own reports."
+  },
+  "actual_aider_validation": {
+    "actual_aider": "0.86.2",
+    "aider_python": "3.12.15",
+    "model": "qwen2.5-coder:1.5b",
+    "actual_model_weights": true,
+    "host": "loopback-only Ollama 0.6.8",
+    "hardware": "CPU",
+    "paid_provider_calls": 0,
+    "actual_runtime_worktree_dispatch": true,
+    "native_confirmations_disabled": false,
+    "authorized_file": "calculator.py",
+    "task_status": "needs-review",
+    "generated_code": "def add(a, b):\n    return a + b\n",
+    "assertion_add_2_3": 5,
+    "original_project_unchanged": true,
+    "automatic_commit_or_merge": false,
+    "sandbox_active": false,
+    "scope": "One bounded file smoke test using a configured Aider profile; not a coding benchmark or sandbox compatibility acceptance."
+  },
+  "restored_workspace_tests": {
+    "passed": 74,
+    "skipped": 7,
+    "note": "Real sandbox/Ruflo dependencies absent after environment restoration; dedicated CI covers them. This is not a new full kernel/device pass."
   }
 }

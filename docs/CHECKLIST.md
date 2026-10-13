@@ -21,11 +21,12 @@ Checked means implemented and supported by the stated evidence, not that every p
 
 ## Acceptance gates still open
 
-- [x] Native Windows 3.11/3.13 CI for `d683d8f`: 19 passed, two skipped each; all four native acceptance tests passed. Later changes still require new reports.
-- [x] Linux 3.11/3.13 CI for `d683d8f`: 75 passed, five skipped each; actual Ruflo: one passed.
+- [x] Native Windows 3.11/3.13 CI for `636c6be`: 19 passed, two skipped each; all four native acceptance tests passed. Later changes still require new reports.
+- [x] Linux 3.11/3.13 CI for `636c6be`: 76 passed, five skipped each; actual Ruflo: one passed.
 - [ ] Implement and adversarially test equivalent native Windows folder isolation. ConPTY/Job Objects alone do not restrict filesystem access.
 - [x] Validate actual local Ollama/Qwen2.5-Coder 1.5B CPU activation, generation, bounded planning, embedded CLI and confirmed unload.
-- [ ] Validate real provider accounts and Aider coding combinations, including sandbox cache/auth behavior.
+- [x] Validate a real Aider 0.86.2 + Ollama 1.5B coding task through Runtime/worktree dispatch: add(2,3)=5, needs-review, original unchanged, no automatic commit/merge.
+- [ ] Validate real provider accounts, broader Aider coding and sandbox/cache/auth combinations.
 - [ ] Test microphones, OS credential stores and macOS behavior on actual devices.
 - [ ] Independent security review and wider escape tests; current Linux checks are meaningful, not an absolute security guarantee.
 
@@ -47,3 +48,5 @@ Commit `f6721f5`: live Ruflo passed; Linux sandbox startup failed on Ubuntu 24.0
 ## Real-model follow-up
 
 The 1.5B model passed the functional smoke test; 0.5B generated invalid dependencies, correctly refused without execution. This is not a coding-quality benchmark. Ollama can acknowledge unload before `/api/ps` clears: Forge now waits for observed residency removal, with bounded timeout/cancellation. Evidence and repeatable opt-in script are included.
+
+- [x] Add a state-free source installer bundle, manifest hashes and native Windows/Linux installation instructions.

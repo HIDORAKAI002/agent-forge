@@ -241,4 +241,10 @@ Repeat with an already-installed local model and `ollama` on PATH:
 python scripts/validate_local_model.py --model qwen2.5-coder:1.5b
 ```
 
-All five CI suites passed `d683d8f` ([run](https://github.com/HIDORAKAI002/agent-forge/actions/runs/38351513079)). Later commits need their own source-tagged reports.
+All five CI suites passed `636c6be` ([run](https://github.com/HIDORAKAI002/agent-forge/actions/runs/38356388507)). Later commits need their own source-tagged reports.
+
+## Installer bundle and actual coding adapter
+
+[Source-bundle installation](docs/INSTALL_BUNDLE.md) supports the placeholder `agent-command` launcher on Linux/WSL and native Windows without a repository login. Prerequisites and package downloads are explicit; the bundle includes no user state, credentials or environments.
+
+A real Aider 0.86.2 / Python 3.12.15 + Qwen2.5-Coder 1.5B task was dispatched through Forge into a disposable Git worktree. It implemented `add(a,b)`, passed `add(2,3)==5`, and stayed in `needs-review`. Original files were unchanged; no automatic commit/merge. [Evidence](docs/AIDER_VALIDATION.json). This was one bounded configured-file test, not a quality benchmark or Linux sandbox compatibility test. Aider 0.86.2 requires Python 3.10–3.12; install it separately when Forge uses Python 3.13.
