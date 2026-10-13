@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-forge-tui"
-version = "0.3.0"
+version = "0.4.0"
 description = "A terminal-native multi-agent coding workstation"
 requires-python = ">=3.11"
 license = "MIT"
@@ -12,6 +12,8 @@ dependencies = ["textual>=1,<9", "pyte>=0.8.2,<0.9", "psutil>=6,<8", "ptyprocess
 
 [project.optional-dependencies]
 mcp = ["mcp>=1,<2"]
+credentials = ["keyring>=25,<26"]
+voice = ["faster-whisper>=1.1,<2", "sounddevice>=0.5,<1", "av>=14,<17"]
 test = ["pytest>=8,<10", "pytest-asyncio>=0.24,<2"]
 
 [project.scripts]

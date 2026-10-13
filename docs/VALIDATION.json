@@ -1,8 +1,8 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.0",
   "interface": "terminal-native Textual TUI; no Electron or browser runtime",
   "tests": {
-    "passed": 44,
+    "passed": 64,
     "failed": 0,
     "command": "python -m pytest -q",
     "python": "3.13",
@@ -23,23 +23,64 @@
     "local/cloud model filtering, endpoint and redirect restrictions",
     "Ollama tutorial, model selection and explicit download/load approval",
     "embedded Ollama CLI launch arguments/input using a labeled executable fixture",
-    "fast native CLI startup output preserved when blank bottom rows shrink"
+    "fast native CLI startup output preserved when blank bottom rows shrink",
+    "standalone user-local installer, managed backed-up PATH block and update",
+    "actual installed agent-command TUI with nested real shell and confirmed clean exit",
+    "masked session credentials, provider scoping and keyring no-plaintext fallback via tests",
+    "official provider-install confirmation and cancel-without-process test",
+    "eight persistent palettes and synchronized theme picker",
+    "Ollama structured planner via real loopback HTTP fixture",
+    "validated task DAG, explicit queue approval and routed bounded dispatch",
+    "dispatch max concurrency, dependency review gates, command-change permission revocation",
+    "Aider local model profile flags",
+    "actual faster-whisper tiny.en CPU/int8 public-sample transcription",
+    "actual Forge voice prepare to RAM PCM buffer to editable draft event; no auto-submit"
   ],
-  "visual_inspection": "Six actual Ollama TUI states inspected individually: first-run, confirmation, byte progress, activated model, setup/resource meters, compact tutorial. Compact guide shortened to expose selection controls.",
+  "visual_inspection": "15 v0.4 actual Textual states inspected individually: setup, provider controls, eight palettes, fixture planner draft, queue approval, voice controls, actual public-sample transcription draft, compact setup. Theme background defects fixed; picker synchronized with toolbar theme changes.",
   "provider_models_used": false,
   "not_yet_verified": [
     "actual installed Claude/Codex/Gemini/Kimi CLI compatibility",
     "macOS real-device behavior",
-    "actual installed Ollama daemon and real model inference; HTTP and executable fixtures used here"
+    "actual installed Ollama daemon and real model inference; HTTP and executable fixtures used here",
+    "real microphone and PortAudio devices",
+    "actual OS credential stores and Codex account authentication; fixture tests only",
+    "native provider installers executing on a user machine",
+    "real local Ollama supervisor inference and Aider coding; HTTP/profile fixtures only"
   ],
   "not_implemented": [
-    "voice transcription",
     "Ruflo modules",
-    "natural-language supervisor planning",
-    "automatic cost/model dispatch",
-    "enforced spend budgets",
-    "native Windows ConPTY",
-    "OS security sandbox"
+    "native Windows ConPTY and installer",
+    "OS security sandbox",
+    "fully autonomous retries or merging",
+    "enforced spend budgets"
   ],
-  "source_scope": "original terminal-native source; no earlier Electron files or third-party integration source vendored"
+  "source_scope": "original terminal-native source; no earlier Electron files or third-party integration source vendored",
+  "voice_validation": {
+    "pipeline": "actual Forge Voice.prepare \u2192 PCM RAM buffer \u2192 Voice.stop \u2192 editable draft event",
+    "model": "tiny.en",
+    "transcript": "And so, my fellow Americans ask not what your country can do for you ask what you can do for your country.",
+    "audio_source": "https://raw.githubusercontent.com/ggml-org/whisper.cpp/master/samples/jfk.wav",
+    "microphone_tested": false,
+    "submitted_to_cli": false,
+    "device": "cpu/int8",
+    "dependencies": {
+      "faster-whisper": "1.2.1",
+      "sounddevice": "0.5.6",
+      "av": "16.1.0"
+    }
+  },
+  "installer_validation": {
+    "installed_launcher": "agent-command",
+    "version": "0.4.0",
+    "standalone_package": true,
+    "outer_pty_tui": true,
+    "embedded_shell": true,
+    "ctrl_space_and_confirmed_exit": true,
+    "exit_code": 0,
+    "platform": "Linux",
+    "sudo_used": false
+  },
+  "out_of_scope": [
+    "live provider quotas"
+  ]
 }

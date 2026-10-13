@@ -24,6 +24,8 @@ async def capture():
         try:
             async with app.run_test(size=(160,50)) as pilot:
                 await pilot.pause(.3)
+                app.action_tab('models')
+                await pilot.pause()
                 app.ui('#model-tag',Input).value='fixture:local'
                 app.refresh_models()
                 save('10-ollama-hub.svg')

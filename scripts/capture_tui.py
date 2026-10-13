@@ -16,6 +16,8 @@ async def capture():
         try:
             async with app.run_test(size=(160, 50)) as pilot:
                 await pilot.pause()
+                app.action_tab("workbench")
+                await pilot.pause()
                 app.save_screenshot("01-workspace.svg", str(OUTPUT))
                 app.execute("/remember decision UI demo: changes need tests and human review.")
                 app.execute("/task claude UI demo: parser tests :: Add bounded parser tests. Report verification results.")

@@ -13,20 +13,25 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
+from textual.theme import Theme
 from textual.suggester import SuggestFromList
 from textual.widgets import Button, DataTable, Footer, Input, Label, OptionList, RichLog, Select, Static, TabbedContent, TabPane, TextArea
 from textual.widgets.option_list import Option
 from .runtime import Runtime
 from .terminal import Session
-from .profiles import recommend, Profile
+from .profiles import recommend, Profile, profiles
 from .ollama import OllamaHub, model_name, bytes_text
 import shutil
 import platform
 import time
 import psutil
+from .settings import Preferences, PALETTES, surface
+from .credentials import PROVIDERS, INSTALL_COMMANDS
+from .planner import Planner, DispatchBatch, queue_plan, validate_plan
+from .voice import Voice, MODELS
+from .store import managed
 
-COMMANDS = ["/models", "/tutorial", "/ollama", "/help", "/launch", "/sessions", "/focus", "/stop", "/task", "/tasks", "/run", "/approve", "/remember", "/memory", "/send", "/inbox", "/ack", "/engines", "/route", "/theme", "/quit"]
-PALETTES = {"nebula": ("#65d7ff", "#b299ff", "#0a101e"), "ember": ("#ffbd73", "#fb86a5", "#160f13")}
+COMMANDS = ["/setup", "/plan", "/dispatch", "/pause", "/voice", "/models", "/tutorial", "/ollama", "/help", "/launch", "/sessions", "/focus", "/stop", "/task", "/tasks", "/run", "/approve", "/remember", "/memory", "/send", "/inbox", "/ack", "/engines", "/route", "/theme", "/quit"]
 KEY_BYTES = {"enter":"\r", "tab":"\t", "shift+tab":"\x1b[Z", "backspace":"\x7f", "escape":"\x1b", "up":"\x1b[A", "down":"\x1b[B", "right":"\x1b[C", "left":"\x1b[D", "home":"\x1b[H", "end":"\x1b[F", "delete":"\x1b[3~", "insert":"\x1b[2~", "pageup":"\x1b[5~", "pagedown":"\x1b[6~"}
 ANSI_COLORS = {"default":"#d9e4f4", "black":"#172236", "red":"#f37e91", "green":"#78ddae", "brown":"#f2ca7c", "blue":"#75a7ff", "magenta":"#c3a0ff", "cyan":"#75dcf0", "white":"#e4edfa", "brightblack":"#788aa5", "brightred":"#ff95a7", "brightgreen":"#9bf6c6", "brightbrown":"#ffe49b", "brightblue":"#a3c4ff", "brightmagenta":"#d7b5ff", "brightcyan":"#9df1ff", "brightwhite":"#ffffff"}
 
@@ -200,6 +205,28 @@ class TaskScreen(ModalScreen[dict | None]):
             self.dismiss(dict(title=title, prompt=prompt, engine=engine, risk=self.query_one("#task-risk", Select).value, dependencies=[x.strip() for x in self.query_one("#task-deps", Input).value.split(",") if x.strip()]))
 
 
+class DictationScreen(ModalScreen[tuple[str,str] | None]):
+    BINDINGS=[Binding("escape","cancel",show=False)]
+    def __init__(self,text):super().__init__();self.text=text
+    def compose(self):
+        with Vertical(classes="dialog task-dialog"):
+            yield Label("VOICE DRAFT / review before inserting",classes="dialog-title")
+            yield Static("Local transcription may contain mistakes. Insertion never presses Enter or runs commands.",markup=False)
+            yield TextArea(self.text,id="voice-draft")
+            with Horizontal(classes="dialog-actions"):
+                yield Button("Discard",id="voice-discard")
+                yield Button("To goal",id="voice-goal")
+                yield Button("To composer",id="voice-composer")
+                yield Button("To active CLI",id="voice-cli",variant="primary")
+    def action_cancel(self):self.dismiss(None)
+    @on(Button.Pressed)
+    def choose(self,event):
+        if event.button.id=="voice-discard":self.dismiss(None)
+        elif event.button.id in ("voice-goal","voice-composer","voice-cli"):
+            value=self.query_one("#voice-draft",TextArea).text
+            self.dismiss((event.button.id,value))
+
+
 class ForgeApp(App):
     TITLE = "AGENT FORGE"
     ENABLE_COMMAND_PALETTE = False
@@ -240,13 +267,21 @@ class ForgeApp(App):
     #model-table { height: 7; border: round #78688f; }
     #model-hardware, #model-commands { height: auto; padding: 1; color: #b9cce6; }
     Footer { background: #182238; color: #b9cce6; }
-    ConfirmScreen, TaskScreen { align: center middle; background: #060912 80%; }
+    ConfirmScreen, TaskScreen, DictationScreen { align: center middle; background: #060912 80%; }
     .dialog { width: 76; height: auto; max-height: 95%; border: heavy #b299ff; padding: 1 2; background: #142139; }
     .dialog-title { height: 2; text-style: bold; color: #91e3ff; }
     .dialog Static { height: auto; margin-bottom: 1; }
     .dialog-actions { height: 3; align-horizontal: right; margin-top: 1; }
     .dialog-actions Button { margin-left: 1; }
     .task-dialog { width: 88; }
+    #setup-scroll, #planner-scroll { height: 1fr; padding: 0 1; }
+    .setup-note { height: auto; padding: 1; color: #b9cce6; }
+    .setup-section { height: 2; margin-top: 1; color: #b299ff; text-style: bold; }
+    #key-status, #planner-status, #voice-status { height: auto; min-height: 2; color: #8fdecc; padding: 0 1; }
+    #planner-goal { height: 5; }
+    #planner-draft { height: 12; }
+    #voice-draft { height: 9; }
+    #setup-scroll Select, #setup-scroll Input { height: 3; }
     #task-prompt { height: 9; border: round #445773; }
     .task-selectors { height: 3; }
     .task-selectors Select { width: 1fr; }
@@ -261,13 +296,24 @@ class ForgeApp(App):
     .compact #sessions { min-height: 4; }
     .compact #toolbar-hint { display: none; }
     """
-    BINDINGS = [Binding("f6", "tab('models')", "Models", priority=True), Binding("ctrl+space", "composer", "Command", priority=True), Binding("ctrl+@", "composer", show=False, priority=True), Binding("ctrl+at", "composer", show=False, priority=True), Binding("f1", "help", "Help", priority=True), Binding("f2", "tab('workbench')", "Agents", priority=True), Binding("f3", "tab('missions')", "Tasks", priority=True), Binding("f4", "tab('memory')", "Memory", priority=True), Binding("f5", "tab('mail')", "Mail", priority=True), Binding("ctrl+q", "request_quit", "Quit", priority=True)]
+    BINDINGS = [Binding("f7", "tab('setup')", "Setup", priority=True), Binding("f8", "tab('planning')", "Plan", priority=True), Binding("f6", "tab('models')", "Models", priority=True), Binding("ctrl+space", "composer", "Command", priority=True), Binding("ctrl+@", "composer", show=False, priority=True), Binding("ctrl+at", "composer", show=False, priority=True), Binding("f1", "help", "Help", priority=True), Binding("f2", "tab('workbench')", "Agents", priority=True), Binding("f3", "tab('missions')", "Tasks", priority=True), Binding("f4", "tab('memory')", "Memory", priority=True), Binding("f5", "tab('mail')", "Mail", priority=True), Binding("ctrl+q", "request_quit", "Quit", priority=True)]
 
     def __init__(self, project: str | Path):
         super().__init__()
         self.runtime = Runtime(project)
         self.active: str | None = None
-        self.palette = "nebula"
+        try:
+            self.preferences = Preferences()
+        except Exception:
+            self.runtime.close()
+            raise
+        for name,(primary,secondary,background) in PALETTES.items():
+            self.register_theme(Theme(name="forge-"+name,primary=primary,secondary=secondary,accent=secondary,foreground="#d9e4f4",background=background,surface=surface(background,primary,.07),panel=surface(background,primary,.11),success="#78ddae",warning="#e1bc7c",error="#ff93a8",dark=True))
+        self.palette = self.preferences.data["theme"]
+        self.planner = Planner()
+        self.dispatch = DispatchBatch()
+        self.voice = Voice(self.preferences.root/"speech-models")
+        self.key_status = "No provider key entered or verified"
         self.memory_query = ""
         self.mail_recipient = "supervisor"
         self.cache: dict[str, str] = {}
@@ -298,7 +344,7 @@ class ForgeApp(App):
                         yield Static(id="terminal-meta", markup=False)
                         yield TerminalSurface(id="terminal-view")
                     with TabPane("≡ Missions", id="missions"):
-                        yield Static("Queued → isolated worktree → review → human approval. Select a row to prepare /run; nothing auto-executes.", classes="tab-note")
+                        yield Static("Queued → isolated worktree → review → human approval. Select a row to prepare /run. Approved dispatch can launch ready tasks; reviews remain manual.", classes="tab-note")
                         yield DataTable(id="task-table", cursor_type="row")
                     with TabPane("◇ Memory", id="memory"):
                         yield Static("One project memory. Facts / decisions / handoffs with provenance. /remember <kind> <text> · /memory <search>", classes="tab-note")
@@ -327,12 +373,59 @@ class ForgeApp(App):
                             yield Static(id="model-hardware", markup=False)
                             yield Static(id="model-commands", markup=False)
                             yield Button("Finish / skip tutorial", id="model-tutorial-done")
+                    with TabPane("✦ Plan", id="planning"):
+                        with VerticalScroll(id="planner-scroll"):
+                            yield Static("LOCAL SUPERVISOR / bounded plans, explicit dispatch",classes="setup-section")
+                            yield Static("Uses the selected local Ollama model and recent project memories. A plan is a proposal—not permission to run commands. High/routine assignments use your tier labels; free is a user assertion, not a billing guarantee.",classes="setup-note",markup=False)
+                            yield TextArea(id="planner-goal")
+                            with Horizontal(classes="model-actions"):
+                                yield Button("Make plan",id="plan-generate",variant="primary")
+                                yield Button("Queue draft",id="plan-queue")
+                                yield Button("Dispatch",id="plan-dispatch")
+                                yield Button("Pause",id="plan-pause")
+                            yield Static(id="planner-status",markup=False)
+                            yield TextArea(id="planner-draft",language="json")
+                            yield Static("Edit the JSON before queueing. depends_on uses zero-based earlier task indices. Dispatch asks once for the selected queued tasks, runs at most two task sessions, and waits for prerequisite human approvals. Merge prerequisite changes manually. Pause stops future launches, not running CLIs. No automatic retries or merges; this is not an OS sandbox.",classes="setup-note",markup=False)
+                    with TabPane("⚙ Setup", id="setup"):
+                        with VerticalScroll(id="setup-scroll"):
+                            yield Static("FIRST RUN / install → connect → choose → work",classes="setup-section")
+                            yield Static("agent-command is the temporary launcher. Core installation does not silently install provider CLIs. Ollama needs no API key for local use. Native provider login remains available; an API key is not a subscription credential.",classes="setup-note",markup=False)
+                            yield Static("APPEARANCE / 8 terminal palettes",classes="setup-section")
+                            yield Select([(name.title(),name) for name in PALETTES],value=self.palette,allow_blank=False,id="setup-theme")
+                            yield Static("PROVIDER KEYS / never stored in project memory",classes="setup-section")
+                            yield Select([(label,provider) for provider,(label,_) in PROVIDERS.items()],value="claude",allow_blank=False,id="key-provider")
+                            yield Static(id="provider-install-command",classes="setup-note",markup=False)
+                            yield Input(password=True,placeholder="API key (masked; never command history)",id="provider-key")
+                            yield Select([("This session only","session"),("OS credential store","vault")],value="session",allow_blank=False,id="key-storage")
+                            with Horizontal(classes="model-actions"):
+                                yield Button("Install CLI",id="setup-install-cli")
+                                yield Button("Save key",id="setup-save-key",variant="primary")
+                                yield Button("Remove key",id="setup-remove-key")
+                                yield Button("Open CLI",id="setup-open-cli")
+                                yield Button("Codex auth",id="setup-codex-auth")
+                            yield Static(id="key-status",markup=False)
+                            yield Static("Claude/Gemini keys are passed only to their corresponding CLI. Codex API-key login is a separate native step; Codex auth uses a non-echoed pipe and requires an OS vault. Without a vault, use native Codex login. Keys are never included in argv, preferences, project JSON or event logs. Existing CLI sessions must restart to receive a newly saved key.",classes="setup-note",markup=False)
+                            yield Static("ROUTING / your strong, free and local tiers",classes="setup-section")
+                            yield Select([(profile.label,profile.id) for profile in self.runtime.profiles.values() if profile.id not in ("shell","ollama","ollama-server")],prompt="Choose a coding engine",id="route-engine")
+                            yield Select([(v.title(),v) for v in ("strong","free","economy","local","unknown")],value="unknown",allow_blank=False,id="route-tier")
+                            yield Button("Save routing tier",id="setup-route")
+                            yield Static("Routine: local → free → economy → unknown → strong. High risk: strong first, then available fallbacks. Tier labels do not guarantee capability or price; inspect the draft's selected engine before dispatch. Live provider quotas are intentionally out of scope.",classes="setup-note",markup=False)
+                            yield Static("VOICE / optional local dictation",classes="setup-section")
+                            yield Select([(name,name) for name in MODELS],value=self.preferences.data["voice_model"],allow_blank=False,id="voice-model")
+                            with Horizontal(classes="model-actions"):
+                                yield Button("Prepare voice",id="setup-voice-prepare")
+                                yield Button("Record / stop",id="setup-voice-record")
+                                yield Button("Discard audio",id="setup-voice-discard")
+                            yield Static(id="voice-status",markup=False)
+                            yield Static("Install with FORGE_VOICE=1 bash scripts/install.sh. Linux capture may require PortAudio. Preparing downloads speech weights from Hugging Face with your confirmation; later transcription runs locally. Audio stays in RAM and is cleared after processing. Microphone/model-loading progress is indeterminate, not a fabricated percentage. Maximum recording: 60 seconds.",classes="setup-note",markup=False)
+                            yield Static("PLATFORM / Linux and WSL first. macOS needs device validation. Native Windows and enforced OS sandboxing are not implemented. Ruflo source is not vendored or enabled.",classes="setup-note",markup=False)
+                            yield Button("Finish setup / go to Models",id="setup-finish",variant="primary")
                 yield Static(id="activity", markup=False)
         with Horizontal(id="toolbar"):
             yield Button("+ New task", id="new-task", variant="primary")
             yield Button(">_ Shell", id="new-shell")
             yield Button("Theme", id="theme")
-            yield Button("Voice · soon", id="voice", disabled=True)
+            yield Button("Voice", id="voice")
             yield Static("Keyboard-first / real CLIs / shared state", id="toolbar-hint")
         yield CommandInput(id="command", placeholder="› /launch claude   /task   /remember decision …   /help", suggester=SuggestFromList(COMMANDS, case_sensitive=False))
         yield Footer()
@@ -340,6 +433,9 @@ class ForgeApp(App):
     def exit(self, *args, **kwargs):
         self._forge_closing = True
         self.ollama.close()
+        self.planner.close()
+        self.voice.close()
+        self.dispatch.pause()
         if hasattr(self, "_pump_timer"):
             self._pump_timer.stop()
         return super().exit(*args, **kwargs)
@@ -366,13 +462,16 @@ class ForgeApp(App):
         welcome.append("Real CLI processes live inside this terminal.\nShared memory and mail connect their work.\n\n", style="#c4d2e8")
         welcome.append("01  Launch a harness     /launch claude\n02  Give work an owner  /task\n03  Keep the context    /remember decision …\n04  Inspect & approve   /tasks", style="#b7a3eb")
         self.say(Panel(welcome, border_style="#685791", padding=(1, 2), title="░▒▓  LOCAL AGENT WORKSPACE  ▓▒░"))
-        self.say(Text("Native CLI permissions still apply. Worktrees isolate files, not OS access.\nVoice and automatic orchestration are not enabled in v0.3. Local Ollama chat is available in Models (F6).", style="#e1bc7c"))
+        self.say(Text("Native CLI permissions still apply. Worktrees isolate files, not OS access.\nLocal planning and review-gated dispatch are available. Voice needs optional dependencies. Worktrees are not an OS sandbox.", style="#e1bc7c"))
+        self.set_palette(self.palette)
         self.refresh_state()
         self.action_composer()
         self._pump_timer = self.set_interval(0.08, self.pump)
         self.ollama.start("refresh")
         self._ollama_refresh = time.monotonic()
-        if not self.ollama.settings["tutorial_completed"]:
+        if not self.preferences.data["setup_completed"]:
+            self.action_tab("setup")
+        elif not self.ollama.settings["tutorial_completed"]:
             self.action_tab("models")
 
     def on_resize(self, event: events.Resize):
@@ -388,6 +487,7 @@ class ForgeApp(App):
     def refresh_state(self):
         self.refresh_engines()
         self.refresh_models()
+        self.refresh_setup()
         store = self.runtime.store
         running = sum(s.status == "running" for s in self.runtime.sessions.values())
         tasks = store.tasks()
@@ -398,8 +498,8 @@ class ForgeApp(App):
         head.append("   Native CLIs · shared context · explicit control", style="#bacbe3")
         head.append("\n   " + "─" * max(10, min(self.size.width - 8, 150)), style="#344866")
         self.ui("#masthead", Static).update(head)
-        metrics = Text(f" ◉ {running:02d} LIVE   │   ≡ {len(tasks):02d} TASKS   │   ◇ {len(store.memories(limit=500)):02d} MEMORIES   │   QUOTA / COST: unknown", style=a)
-        metrics.append(f"   │   {self.palette.upper()} / v0.3", style=b)
+        metrics = Text(f" ◉ {running:02d} LIVE   │   ≡ {len(tasks):02d} TASKS   │   ◇ {len(store.memories(limit=500)):02d} MEMORIES   │   REVIEW-GATED DISPATCH", style=a)
+        metrics.append(f"   │   {self.palette.upper()} / v0.4", style=b)
         self.ui("#metrics", Static).update(metrics)
         self.ui("#policy", Static).update(Text("ROUTING / POLICY\nUser-set cost tiers\n/run asks before launch\nNo automatic merges", style="#dac298"))
         session_signature = json.dumps([(s.id, s.engine, s.status) for s in self.runtime.sessions.values()])
@@ -436,6 +536,17 @@ class ForgeApp(App):
         if self._forge_closing or not getattr(self, "workspace_screen", None) or not self.workspace_screen.is_mounted or not self.workspace_screen.query("#masthead"):
             return
         self.ollama.poll()
+        if self.planner.poll() and self.planner.draft:
+            draft={'tasks':[dict(title=t['title'],instructions=t['prompt'],risk=t['risk'],depends_on=t['depends_on']) for t in self.planner.draft]}
+            self.ui("#planner-draft",TextArea).load_text(json.dumps(draft,indent=2))
+        while not self.runtime.credentials.events.empty():
+            self.key_status=self.runtime.credentials.events.get_nowait()
+        for kind,value in self.voice.poll():
+            if kind=='draft':self.show_voice_draft(value)
+        self.dispatch.tick(self.runtime)
+        if self.dispatch.errors:
+            for error in self.dispatch.errors:self.say(Text("Dispatch paused task: "+error,style="#ff93a8"))
+            self.dispatch.errors.clear()
         if not self.ollama.busy and time.monotonic() - self._ollama_refresh > 10:
             self.ollama.start("refresh")
             self._ollama_refresh = time.monotonic()
@@ -450,10 +561,16 @@ class ForgeApp(App):
 
     def on_unmount(self):
         self.ollama.close()
+        self.planner.close()
+        self.voice.close()
+        self.dispatch.pause()
 
     def refresh_engines(self):
         selected = self.ollama.settings.get("selected_model")
-        if selected:
+        if selected and self.cache.get("selected-model-profile") != selected:
+            current = profiles(self.runtime.store.project)
+            self.runtime.profiles.update(current)
+            self.cache["selected-model-profile"] = selected
             self.runtime.profiles["ollama"] = Profile("ollama", "Ollama / " + selected, ("ollama", "run", selected), tier="local")
         signature = [(p.id, p.label, p.available) for p in self.runtime.profiles.values()]
         if self.cache.get("engines") == str(signature):
@@ -592,13 +709,13 @@ class ForgeApp(App):
         table = Table(title="COMMAND DECK", border_style="#685791")
         table.add_column("Command", style="#65d7ff")
         table.add_column("Action", style="#c4d2e8")
-        for command, description in [("/models · /tutorial", "Local Ollama selection, live layer % and setup guide"), ("/ollama pull|use <model>", "Confirm download; preload and persist local operator"), ("/launch <engine>", "Embed a real CLI; no API simulation"), ("/focus <session-id>", "Return to a terminal; Ctrl+C goes to the CLI"), ("/task", "Guided task editor; does not launch work"), ("/task <engine> <title> :: <prompt>", "Create a queued task"), ("/run <task-id>", "Confirm isolated task execution"), ("/approve <task-id>", "Record human review; no merge"), ("/remember <fact|decision|handoff> <text>", "Save human-verified project context"), ("/memory [search]", "Inspect/filter persistent memory"), ("/send <from> <to> <text>", "Send project-local agent mail"), ("/inbox <name> /ack <id> <recipient>", "Read or acknowledge durable mail"), ("/route <routine|high>", "Recommend a user-configured tier; never dispatch"), ("/theme <nebula|ember>", "Switch accent and terminal surface"), ("/stop <session-id>", "Confirm process-group termination"), ("/quit", "Confirm stopping running sessions and exit")]:
+        for command, description in [("/setup · F7", "Provider keys, theme picker, routing and local dictation"), ("/plan · F8", "Local supervisor plan; preview/edit before queueing"), ("/dispatch · /pause", "Authorize bounded ready-task dispatch / stop future launches"), ("/voice", "Local speech draft; never auto-submit"), ("/models · /tutorial", "Local Ollama selection, live layer % and setup guide"), ("/ollama pull|use <model>", "Confirm download; preload and persist local operator"), ("/launch <engine>", "Embed a real CLI; no API simulation"), ("/focus <session-id>", "Return to a terminal; Ctrl+C goes to the CLI"), ("/task", "Guided task editor; does not launch work"), ("/task <engine> <title> :: <prompt>", "Create a queued task"), ("/run <task-id>", "Confirm isolated task execution"), ("/approve <task-id>", "Record human review; no merge"), ("/remember <fact|decision|handoff> <text>", "Save human-verified project context"), ("/memory [search]", "Inspect/filter persistent memory"), ("/send <from> <to> <text>", "Send project-local agent mail"), ("/inbox <name> /ack <id> <recipient>", "Read or acknowledge durable mail"), ("/route <routine|high>", "Recommend a user-configured tier; never dispatch"), ("/theme <name>", "Eight saved terminal palettes; Setup has a picker"), ("/stop <session-id>", "Confirm process-group termination"), ("/quit", "Confirm stopping running sessions and exit")]:
             table.add_row(command, description)
         self.say(table)
         self.action_composer()
 
     def new_task(self):
-        options = [(p.label + (" · missing" if not p.available else ""), p.id) for p in self.runtime.profiles.values() if p.id != "shell"]
+        options = [(p.label + (" · missing" if not p.available else ""), p.id) for p in self.runtime.profiles.values() if p.id not in ("shell","ollama","ollama-server")]
         def created(values):
             if values:
                 try:
@@ -629,7 +746,10 @@ class ForgeApp(App):
 
     @on(Button.Pressed)
     def toolbar(self, event: Button.Pressed):
-        if event.button.id and event.button.id.startswith("model-"):
+        if event.button.id and event.button.id.startswith(("setup-","plan-")):
+            try:self.setup_action(event.button.id)
+            except Exception as error:self.error(error)
+        elif event.button.id and event.button.id.startswith("model-"):
             try:
                 self.model_action(event.button.id)
             except Exception as error:
@@ -642,7 +762,11 @@ class ForgeApp(App):
             except Exception as error:
                 self.error(error)
         elif event.button.id == "theme":
-            self.set_palette("ember" if self.palette == "nebula" else "nebula")
+            names=list(PALETTES)
+            self.set_palette(names[(names.index(self.palette)+1)%len(names)])
+        elif event.button.id == "voice":
+            self.action_tab("setup")
+            self.ui("#setup-scroll").scroll_to_widget(self.ui("#voice-status"))
 
     @on(OptionList.OptionSelected, "#engines")
     def launch_engine(self, event: OptionList.OptionSelected):
@@ -661,20 +785,175 @@ class ForgeApp(App):
         self.action_composer()
 
     def set_palette(self, name: str):
-        if name not in PALETTES:
-            raise ValueError("Theme: nebula or ember")
-        self.palette = name
-        primary, secondary, background = PALETTES[name]
-        self.workspace_screen.styles.background = background
-        self.ui("#masthead").styles.background = "#251b24" if name == "ember" else "#111c30"
-        self.ui("#metrics").styles.background = "#211823" if name == "ember" else "#121e31"
-        terminal = self.ui("#terminal-view", TerminalSurface)
-        terminal.default_background = "#170e14" if name == "ember" else "#090e18"
-        terminal.styles.background = terminal.default_background
-        terminal.refresh()
-        self.ui("#masthead").styles.border_bottom = ("heavy", primary)
-        self.ui("#command").styles.border = ("tall", secondary)
+        if name not in PALETTES:raise ValueError("Themes: "+", ".join(PALETTES))
+        self.palette=name
+        with self.prevent(Select.Changed):
+            self.ui("#setup-theme",Select).value=name
+        self.theme="forge-"+name
+        primary,secondary,background=PALETTES[name]
+        self.preferences.data["theme"]=name;self.preferences.save()
+        self.workspace_screen.styles.background=background
+        for selector in ("#rail","#toolbar","#metrics","#masthead","#activity","#model-status"):
+            self.ui(selector).styles.background=surface(background,primary,.07)
+        for selector in ("#center","#conversation","#terminal-view","#engines","#sessions","#command"):
+            self.ui(selector).styles.background=surface(background,primary,.025)
+        for selector in ("#engines","#conversation","#activity","#model-table"):
+            self.ui(selector).styles.border=("round",surface(background,primary,.55))
+        self.ui("#masthead").styles.border_bottom=("heavy",primary)
+        self.ui("#command").styles.border=("tall",secondary)
+        terminal=self.ui("#terminal-view",TerminalSurface)
+        terminal.default_background=surface(background,primary,.025);terminal.refresh()
+        self.ui("#model-status").styles.color=primary
+        for widget in self.workspace_screen.query("Tabs,Footer"):
+            widget.styles.background=surface(background,primary,.07)
+        self.ui("#project").styles.background=surface(background,primary,.07)
+        self.ui("#toolbar-hint").styles.background=surface(background,primary,.07)
+        self.ui("#conversation",RichLog).notify_style_update()
+        for widget in self.workspace_screen.query(".rail-title,.setup-section"):
+            widget.styles.color=secondary
         self.refresh_state()
+
+    @on(Select.Changed,"#setup-theme")
+    def theme_selected(self,event):
+        if event.value is not Select.BLANK and getattr(self,"workspace_screen",None):self.set_palette(str(event.value))
+
+    @on(Select.Changed,"#key-provider")
+    def key_provider_changed(self,event):
+        if event.value is not Select.BLANK and getattr(self,"workspace_screen",None):
+            self.ui("#provider-key",Input).value=""
+            self.key_status="Provider selected; enter a key or use its native CLI login"
+
+    @on(Select.Changed,"#route-engine")
+    def route_engine_changed(self,event):
+        if event.value is not Select.BLANK and str(event.value) in self.runtime.profiles:
+            self.ui("#route-tier",Select).value=self.runtime.profiles[str(event.value)].tier
+
+    def refresh_setup(self):
+        provider=str(self.ui("#key-provider",Select).value)
+        self.ui("#provider-install-command",Static).update("INSTALL / "+INSTALL_COMMANDS[provider]+"\nInstall CLI asks before running this official command. npm installs need Node.js; no sudo is added.")
+        self.ui("#key-status",Static).update(self.runtime.credentials.storage_label+"\n"+self.key_status)
+        self.ui("#planner-status",Static).update(self.planner.state+f" · {len(self.dispatch.grants)} authorized tasks waiting")
+        self.ui("#voice-status",Static).update(f"Voice dependencies: {'installed' if self.voice.available else 'not installed'} · prepared {self.voice.model_name or 'none'} · {self.voice.state} · {self.voice.seconds:.1f}s captured")
+        self.ui("#setup-save-key",Button).disabled=self.runtime.credentials.busy
+        self.ui("#plan-generate",Button).disabled=self.planner.busy
+        self.ui("#setup-voice-prepare",Button).disabled=self.voice.busy or self.voice.recording
+        self.ui("#setup-voice-record",Button).disabled=self.voice.busy
+        self.ui("#setup-voice-record",Button).label="Stop + transcribe" if self.voice.recording else "Record"
+        options=[(p.label,p.id) for p in self.runtime.profiles.values() if p.id not in ("shell","ollama","ollama-server")]
+        signature=str(options)
+        if self.cache.get("route-options")!=signature:
+            self.ui("#route-engine",Select).set_options(options);self.cache["route-options"]=signature
+
+    def setup_action(self,action):
+        if action=="setup-install-cli":
+            provider=str(self.ui("#key-provider",Select).value)
+            if provider in ("codex","gemini") and not shutil.which("npm"):
+                raise ValueError("Install Node.js LTS / npm first (https://nodejs.org); no system package installer was run")
+            command=INSTALL_COMMANDS[provider]
+            self.push_screen(ConfirmScreen("INSTALL PROVIDER CLI / official command",f"Run this third-party installer with your current user's permissions? It downloads software and can modify tool directories. No managed API key is passed to the installer. No sudo is added. Review before proceeding.\n\n{command}"),lambda approved:self.install_provider(provider) if approved else None)
+        elif action=="setup-save-key":
+            widget=self.ui("#provider-key",Input)
+            value=widget.value;widget.value=""
+            provider=str(self.ui("#key-provider",Select).value)
+            persistent=self.ui("#key-storage",Select).value=="vault"
+            self.runtime.credentials.save_async(provider,value,persistent)
+            self.key_status="Saving key; provider validity has not been checked"
+        elif action=="setup-remove-key":
+            self.runtime.credentials.remove(str(self.ui("#key-provider",Select).value))
+            self.ui("#provider-key",Input).value=""
+            self.key_status="Managed key removed; native CLI login/cache is unchanged"
+        elif action=="setup-open-cli":
+            self.focus_session(self.runtime.launch(str(self.ui("#key-provider",Select).value)))
+        elif action=="setup-codex-auth":
+            self.push_screen(ConfirmScreen("CODEX API AUTHENTICATION", "Authenticate the installed Codex CLI using the saved OpenAI key through a non-echoed pipe? Codex's own credential store is forced to OS keyring. This can change its active account/login. No model call is made."),lambda approved:self.safe_codex_auth() if approved else None)
+        elif action=="setup-route":
+            engine=self.ui("#route-engine",Select).value
+            if engine is Select.BLANK:raise ValueError("Choose a coding engine")
+            path=managed(self.runtime.store.directory,"routing.json")
+            value=json.loads(path.read_text()) if path.exists() else {}
+            value[str(engine)]=str(self.ui("#route-tier",Select).value)
+            temp=managed(self.runtime.store.directory,"routing.json.tmp");temp.write_text(json.dumps(value,indent=2));temp.chmod(0o600);temp.replace(path)
+            self.runtime.profiles.update(profiles(self.runtime.store.project))
+            self.key_status="Routing tier saved; free is your policy label, not a billing guarantee"
+        elif action=="setup-finish":
+            self.preferences.data["setup_completed"]=True;self.preferences.save();self.action_tab("models")
+        elif action=="setup-voice-prepare":
+            model=str(self.ui("#voice-model",Select).value)
+            self.push_screen(ConfirmScreen("PREPARE LOCAL DICTATION",f"Download/load the {model} Whisper speech model via faster-whisper? Download requires internet and disk; microphone access happens only after Record. Transcription then runs locally on CPU. Nothing is auto-submitted."),lambda approved:self.prepare_voice(model) if approved else None)
+        elif action=="setup-voice-record":
+            if self.voice.recording:self.voice.stop()
+            else:self.voice.start()
+        elif action=="setup-voice-discard":
+            self.voice.stop(False)
+        elif action=="plan-generate":
+            selected=self.ollama.settings.get("selected_model")
+            if not selected:raise ValueError("Activate a local operator in Models first")
+            goal=self.ui("#planner-goal",TextArea).text
+            self.planner.start(self.ollama.api,selected,goal,self.runtime.store.memories(limit=20))
+        elif action=="plan-queue":
+            raw=json.loads(self.ui("#planner-draft",TextArea).text)
+            draft=validate_plan(raw)
+            assignments=[recommend(list(self.runtime.profiles.values()),t['risk']) for t in draft]
+            body="Queue these routed tasks without launching them?\n"+"\n".join(f"{i+1}. {t['title']} → {engine or 'NO AVAILABLE ENGINE'} ({t['risk']})" for i,(t,engine) in enumerate(zip(draft,assignments)))
+            self.push_screen(ConfirmScreen("REVIEW PLAN / queue only",body),lambda approved:self.safe_queue(draft) if approved else None)
+        elif action=="plan-dispatch":self.confirm_dispatch()
+        elif action=="plan-pause":self.dispatch.pause()
+        self.refresh_setup()
+
+    def install_provider(self,provider):
+        engine="install-"+provider
+        try:
+            self.runtime.profiles[engine]=Profile(engine,"Installer / "+provider,("/bin/bash","-o","pipefail","-c",INSTALL_COMMANDS[provider]))
+            session=self.runtime.launch(engine)
+            self.runtime.profiles.pop(engine,None)
+            self.focus_session(session)
+        except Exception as error:
+            self.runtime.profiles.pop(engine,None)
+            self.error(error)
+
+    def safe_codex_auth(self):
+        try:self.runtime.credentials.codex_login()
+        except Exception as error:self.error(error)
+
+    def prepare_voice(self,model):
+        try:
+            self.voice.prepare(model)
+            self.preferences.data['voice_model']=model;self.preferences.save()
+        except Exception as error:self.error(error)
+
+    def safe_queue(self,draft):
+        try:
+            tasks=queue_plan(self.runtime,draft)
+            self.say(f"Queued {len(tasks)} planned tasks; no CLI launched.")
+            self.action_tab("missions");self.refresh_state()
+        except Exception as error:self.error(error)
+
+    def confirm_dispatch(self):
+        tasks=[t for t in self.runtime.store.tasks() if t['status']=='queued'][:20]
+        if not tasks:raise ValueError("No queued tasks")
+        body=f"Authorize these {len(tasks)} tasks (up to 20 per approval) for automatic ready-task dispatch (maximum two task sessions)? Provider CLIs may incur API charges or use subscriptions. Free labels do not guarantee free calls. Native permissions still apply. Worktrees are not a sandbox; reviews and prerequisite merges remain manual.\n"+"\n".join(t['title']+" → "+t['engine'] for t in tasks[:20])
+        def confirmed(approved):
+            if approved:
+                try:self.dispatch.authorize(self.runtime,tasks)
+                except Exception as error:self.error(error)
+        self.push_screen(ConfirmScreen("AUTHORIZE DISPATCH / your approval",body),confirmed)
+
+    def show_voice_draft(self,text):
+        def insert(result):
+            if not result:return
+            target,value=result
+            try:
+                if target=='voice-goal':
+                    self.ui("#planner-goal",TextArea).load_text(value);self.action_tab("planning")
+                elif target=='voice-composer':
+                    self.ui("#command",Input).value=' '.join(value.splitlines());self.action_composer()
+                elif target=='voice-cli':
+                    if not self.active:raise ValueError("No active CLI; transcript was not submitted")
+                    clean=''.join(c if c>=' ' else ' ' for c in value)
+                    self.runtime.session(self.active).write(clean)
+                    self.focus_session(self.runtime.session(self.active))
+            except Exception as error:self.error(error)
+        self.push_screen(DictationScreen(text),insert)
 
     @on(Input.Submitted, "#command")
     def submitted(self, event: Input.Submitted):
@@ -692,7 +971,16 @@ class ForgeApp(App):
 
     def execute(self, command: str):
         name, _, rest = command.partition(" ")
-        if name in ("/models", "/tutorial"):
+        if name=="/setup":self.action_tab("setup")
+        elif name=="/plan":
+            self.action_tab("planning")
+            if rest:self.ui("#planner-goal",TextArea).load_text(rest)
+        elif name=="/dispatch":self.confirm_dispatch()
+        elif name=="/pause":self.dispatch.pause()
+        elif name=="/voice":
+            self.action_tab("setup")
+            self.ui("#setup-scroll").scroll_to_widget(self.ui("#voice-status"))
+        elif name in ("/models", "/tutorial"):
             if name == "/tutorial":
                 self.ollama.settings["tutorial_completed"] = False
                 self.ollama.save()

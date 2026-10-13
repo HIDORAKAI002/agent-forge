@@ -20,7 +20,9 @@ def ollama_server():
             body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
             state['requests'].append((self.path, body))
             self.send_response(200); self.end_headers()
-            if self.path == '/api/pull':
+            if self.path == '/api/chat':
+                self.wfile.write(json.dumps({'message':{'content':json.dumps({'tasks':[{'title':'HTTP fixture plan','instructions':'Add tests and report checks','risk':'routine','depends_on':[]}]})}}).encode())
+            elif self.path == '/api/pull':
                 events = [{'status':'pulling manifest'}, {'status':'pulling abc','digest':'abc','total':1000,'completed':250}, {'status':'pulling abc','digest':'abc','total':1000,'completed':1000}, {'status':'pulling def','digest':'def','total':2000,'completed':500}, {'status':'verifying sha256 digest'}]
                 if state['mode'] == 'error': events.append({'error':'disk full'})
                 elif state['mode'] != 'eof': events.append({'status':'success'})
@@ -145,7 +147,9 @@ async def test_model_tutorial_confirmation_and_activation(project,ollama_server,
     try:
         async with app.run_test(size=(150,50)) as pilot:
             await pilot.pause(.3)
-            assert app.ui('#tabs',TabbedContent).active=='models'
+            assert app.ui('#tabs',TabbedContent).active=='setup'
+            app.execute('/models')
+            await pilot.pause()
             assert app.ui('#model-tutorial').display
             app.ui('#model-tag',Input).value='fixture:local'
             app.model_action('model-pull')
@@ -207,3 +211,16 @@ def test_fast_cli_startup_output_survives_blank_bottom_resize():
     screen.resize(lines=23,columns=111)
     assert screen.display[0].startswith('FAST_CLI_STARTUP')
     assert screen.cursor.y==1
+
+
+def test_planner_uses_real_local_http_api_and_schema(ollama_server):
+    from forge.planner import Planner
+    host,state=ollama_server;state['installed']=True
+    planner=Planner();planner.start(OllamaAPI(host),'fixture:local','Fixture goal',[])
+    end=time.monotonic()+4
+    while planner.busy and time.monotonic()<end:planner.poll();time.sleep(.01)
+    assert planner.draft[0]['title']=='HTTP fixture plan',planner.state
+    body=next(b for p,b in state['requests'] if p=='/api/chat')
+    assert body['format']['additionalProperties'] is False
+    assert body['model']=='fixture:local'
+    planner.close()

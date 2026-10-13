@@ -1,6 +1,6 @@
 """Harness capabilities are distinct from model providers and cost tiers."""
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 import os
 from pathlib import Path
@@ -55,19 +55,30 @@ def profiles(project: Path) -> dict[str, Profile]:
             if not item.get("argv"):
                 raise ValueError("A profile needs argv")
             tier = item.get("tier", "unknown")
-            if tier not in {"strong", "economy", "local", "unknown"}:
-                raise ValueError("Tier: strong, economy, local or unknown")
+            if tier not in {"strong", "free", "economy", "local", "unknown"}:
+                raise ValueError("Tier: strong, free, economy, local or unknown")
             result[item["id"]] = Profile(item["id"], item.get("label", item["id"])[:100], tuple(item["argv"]), tuple(item["task_argv"]) if item.get("task_argv") else None, tier)
     from .ollama import read_settings
     selected = read_settings(project / ".agent-forge").get("selected_model")
     if selected:
         result["ollama"] = Profile("ollama", "Ollama / " + selected, ("ollama", "run", selected), tier="local")
+    if selected:
+        args=("aider", "--model", "ollama_chat/"+selected, "--no-auto-commits", "--no-dirty-commits", "--analytics-disable")
+        result["aider-local"] = Profile("aider-local", "Local coder / Aider", args, args+("--message", "{prompt}"), tier="local")
+    routing=project / ".agent-forge" / "routing.json"
+    if routing.is_symlink(): raise ValueError("Refusing symlinked routing policy")
+    if routing.exists():
+        values=json.loads(routing.read_text())
+        if not isinstance(values,dict): raise ValueError("Routing policy must map engine IDs to tiers")
+        for engine,tier in values.items():
+            if tier not in {"strong","free","economy","local","unknown"}: raise ValueError("Invalid routing tier")
+            if engine in result: result[engine]=replace(result[engine],tier=tier)
     return result
 
 
 def recommend(available: list[Profile], risk: str) -> str | None:
     # A transparent user-configured policy, not invented vendor prices or free allowances.
-    tier_order = ["strong", "unknown", "economy", "local"] if risk == "high" else ["local", "economy", "unknown", "strong"]
+    tier_order = ["strong", "unknown", "economy", "free", "local"] if risk == "high" else ["local", "free", "economy", "unknown", "strong"]
     candidates = [p for p in available if p.available and p.task_argv]
     for tier in tier_order:
         if matches := [p for p in candidates if p.tier == tier]:

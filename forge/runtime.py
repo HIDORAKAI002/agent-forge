@@ -25,7 +25,13 @@ class Runtime:
             self.lock_file.close()
             self.store.close()
             raise ValueError("Another Agent Forge workspace already owns this project")
-        self.profiles = profiles(self.store.project)
+        try:
+            self.profiles = profiles(self.store.project)
+        except Exception:
+            self.lock_file.close(); self.store.close()
+            raise
+        from .credentials import Credentials
+        self.credentials = Credentials()
         self.sessions: dict[str, Session] = {}
         for task in self.store.tasks():
             if task["status"] == "running":
@@ -37,6 +43,10 @@ class Runtime:
         if engine not in self.profiles:
             raise ValueError("Unknown engine. /engines lists installed and configurable profiles")
         env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", FORGE_PROJECT=str(self.store.project))
+        env.update(self.credentials.environment(engine))
+        if engine == "aider-local":
+            from .ollama import endpoint
+            env["OLLAMA_API_BASE"] = endpoint()
         if env_overrides:
             env.update(env_overrides)
         session = Session(self.profiles[engine].command(prompt), str(cwd or self.store.project), engine, task_id=task_id, env=env)
@@ -108,5 +118,6 @@ class Runtime:
         for task in self.store.tasks():
             if task["status"] == "running":
                 self.store.update_task(task["id"], status="cancelled", note="Workspace closed. Inspect preserved worktree.")
+        self.credentials.close()
         self.store.close()
         self.lock_file.close()

@@ -4,9 +4,10 @@
 
 **A full-screen, Claude-Code-style TUI — not Electron, not a browser, and not a pile of detached terminal windows.** Real coding CLIs run inside embedded terminal surfaces, with one shared project store for memory, missions, and agent mail.
 
-![Terminal-native workspace](docs/screenshots/01-workspace.svg)
+![Terminal-native workspace — Forest theme](docs/screenshots/20-forest.svg)
 
-> v0.3 development foundation. Local Ollama model selection, streaming pulls, preload and first-run onboarding are implemented. The interface and local coordination are implemented. Real provider CLI compatibility, voice input, automatic supervisor planning and enforced cost routing are still being built. Screenshots use labeled demo records; the embedded shell is a real local PTY, not a simulated model session.
+> v0.4 development build: installer, masked-key setup, eight themes, local Ollama planning, approved dispatch and optional local dictation. Windows-native support, enforced OS sandboxing, Ruflo integration and actual-provider/device validation are unfinished; see [build status](docs/BUILD_STATUS.md).
+
 
 ## Start
 
@@ -15,28 +16,53 @@ Python **3.11+**, Git, and a UTF-8 terminal. **Linux / WSL first**; macOS uses t
 ```bash
 git clone https://github.com/HIDORAKAI002/agent-forge.git
 cd agent-forge
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e '.[mcp]'
-forge --project /path/to/your/project
+FORGE_VOICE=1 bash scripts/install.sh
+export PATH="$HOME/.local/bin:$PATH"
+agent-command --project /path/to/your/project
 ```
 
-This repository is private: clone using your existing authorized GitHub login. For development/testing, install `.[mcp,test]` instead. A 120×40 terminal or larger is recommended; 100×36 has a compact layout.
+`agent-command` is a **placeholder launch name**, not the final brand. Set `FORGE_COMMAND=my-command` during installation to choose another valid name. The installer uses `~/.local/share/agent-forge/venv` and `~/.local/bin` by default, without sudo. It copies the package, so the checkout is not a runtime dependency. `FORGE_INSTALL_ROOT` / `FORGE_BIN_ROOT` override the install locations. To omit voice dependencies, leave out `FORGE_VOICE=1`. Python 3.11+ and system audio libraries remain prerequisites.
+
+The installer adds a managed PATH block to supported bash/zsh profiles after backing up existing files; disable this with `FORGE_CONFIGURE_PATH=0`. The current shell still needs the printed `export PATH=...` command or a new terminal. It refuses to overwrite an unrelated launch command. Update by pulling the source and rerunning the installer. It does not silently install provider CLIs, Ollama, Docker or system packages.
+
+**This repository is private:** clone using your existing authorized GitHub login. An anonymous public installer is not available from this private repo. A public binary/package distribution is a separate release decision. For development/testing, use a virtual environment and `pip install -e '.[mcp,credentials,test]'`. A 120×40 terminal or larger is recommended; 100×36 has a compact layout.
 
 Already inside a project? `forge` uses the current directory. `forge --project /path doctor` prints detected CLI harnesses without opening the TUI. The app does not install or authenticate providers automatically.
 
 ## The interface
 
-- **Cyan/violet Nebula** and **amber/rose Ember** themes with terminal-native borders, stippled textures, tabbed views, and a bottom command deck.
+- **Eight themes:** Nebula, Ember, Forest, Ocean, Sakura, Solar, Glacier and Graphite with terminal-native borders, stippled textures, tabbed views, and a bottom command deck.
+- **Setup (F7):** masked provider keys, session/OS-vault storage, native CLI launch, routing tiers, theme picker and voice setup.
+- **Plan (F8):** local supervisor draft → human queue approval → authorized bounded dispatch.
 - **Agents:** real CLI terminal surfaces; select a session and type directly. `Ctrl+C` reaches the focused CLI.
 - **Missions:** guided task editor, a dependency-aware ledger, isolated Git worktrees, and explicit launch/review confirmations.
 - **Memory:** project facts, decisions, and handoffs with author/time/trust provenance.
 - **Models (F6):** local Ollama library/installed-tag selection, actual streamed download layer %, model activation, RAM/VRAM residency and a persistent first-run guide.
 - **Mail:** durable project-local inboxes with explicit acknowledgment.
-- **Live status:** actual session/task/memory counts. Unknown quota/cost is labeled unknown, not invented.
+- **Live status:** actual session/task/memory counts. Provider quota tracking is intentionally out of scope.
 - **Keyboard-first:** slash commands, command history, engine/session pickers, F-key tabs, and `Ctrl+Space` back to the composer.
 
 ![Real CLI inside the terminal workspace](docs/screenshots/06-embedded-terminal.svg)
+
+## Provider setup and local supervision
+
+First launch opens **Setup**. Choose Claude, Codex or Gemini, enter a masked key and choose **session-only** or **OS credential store**. **Install CLI** shows the official Claude/Codex/Gemini install command and asks before running it in an embedded terminal. Codex/Gemini npm installation requires Node.js/npm already present; the wizard never silently runs sudo or system package installers. Saving a key does not validate it or make a model request. Keys never enter project memory, SQLite events, preferences, command history or command-line arguments. Only approved OS-vault backends are accepted; there is no plaintext-file fallback. Headless Linux commonly has no unlocked vault: use session-only storage or native CLI login. Keys are passed only to corresponding provider processes; restart existing sessions to apply changes. Provider/enterprise authentication policies still apply.
+
+Claude may ask to approve the configured API key. Gemini uses `GEMINI_API_KEY`. Codex requires its authentication flow; **Codex auth** explicitly feeds the saved key through an un-echoed pipe and requires an OS vault for its cache. Native CLI login remains an alternative. A subscription login and an API key are not interchangeable, and API use may incur charges. Other CLI providers use their native setup until a specific authentication adapter is verified.
+
+In **Models**, activate an installed local Ollama operator. In **Plan**, enter a goal and choose **Make plan**. The selected local model receives the goal and recent memory reference data, not an unrestricted copy of the entire filesystem. It returns a validated, editable task DAG. **Queue draft** shows routed engines and asks before creating tasks; it does not launch CLIs.
+
+Choose each installed coding engine's tier in **Setup**. High-risk tasks prefer `strong`; routine tasks prefer `local`, then `free`, `economy`, `unknown`, `strong`. High-risk fallback order is shown in the source policy. A `free` label is your classification, **not proof that a provider charges nothing**. Live provider quota tracking is intentionally removed from required scope.
+
+**Dispatch** asks for approval of up to 20 queued tasks and then starts ready work automatically, with at most two task sessions. CLI command changes revoke queued permissions. Tasks still require human review, and prerequisite changes must be merged manually before dependent work. **Pause** cancels future launch grants but does not stop already running CLIs. No automatic retries or merges occur. Use session stop controls to stop active processes.
+
+A selected local model also creates an **Aider local coder** profile: `aider --model ollama_chat/MODEL`. Install Aider separately using its [official instructions](https://aider.chat/docs/llms/ollama.html). That profile can perform coding tasks in worktrees; the standalone Ollama chat profile cannot edit files by itself. Automatic commits are disabled and native confirmations remain enabled. Actual model/harness combinations need real-device validation.
+
+## Voice typing
+
+Install with `FORGE_VOICE=1 bash scripts/install.sh`, then open **Setup → Voice**. Select a speech model and choose **Prepare voice**; initial weight download is confirmed separately. Press **Record**, speak, then **Stop + transcribe**. CPU/int8 faster-whisper generates an editable draft. Choose insertion into the planning goal, composer, or active CLI. **No Enter is sent and no command is auto-executed.**
+
+Audio is held in RAM, capped at 60 seconds and cleared after processing/discard. Speech model weights stay in the user cache; the first download requires network. Installer/model-loading progress is indeterminate rather than a made-up percentage. Linux may require PortAudio; device access/permissions are user-controlled. This is in-app dictation, not a system-wide hotkey service. Actual tiny.en CPU/int8 transcription and the Forge prepare → RAM audio → editable-draft pipeline were tested with the public whisper.cpp JFK sample. Microphone device behavior still requires testing.
 
 ## Quick workflow
 
@@ -91,6 +117,10 @@ Official references: [Linux setup](https://docs.ollama.com/linux), [streamed pul
 
 | Command / key | Action |
 |---|---|
+| `/setup`, F7 | Provider keys, themes, routing and voice setup |
+| `/plan [GOAL]`, F8 | Local supervisor proposal |
+| `/dispatch`, `/pause` | Authorize bounded ready-task dispatch / stop future launches |
+| `/voice` | Jump to local dictation setup |
 | `/models`, F6 | Local model hub |
 | `/tutorial` | Reopen first-run guide |
 | `/ollama pull MODEL`, `/ollama use MODEL` | Confirm download or installed activation |
@@ -109,7 +139,7 @@ Official references: [Linux setup](https://docs.ollama.com/linux), [streamed pul
 | `/inbox NAME` | Select an agent inbox |
 | `/ack FULL_MESSAGE_ID RECIPIENT` | Acknowledge handled mail |
 | `/route routine` or `/route high` | Recommend a user-configured tier; never auto-dispatch |
-| `/theme nebula` or `/theme ember` | Change the palette |
+| `/theme NAME` | Select one of eight saved palettes |
 | `/help`, F1 | Open the command deck |
 | F2 / F3 / F4 / F5 | Agents / missions / memory / mail |
 | Ctrl+Space | Return to slash-command input |
@@ -191,7 +221,7 @@ This is a schema example: `my-worker` must actually exist and implement the argu
 - Only use trusted projects and CLIs. A custom executable/profile is executable code, not a safe document.
 - Terminal output is rendered through a VT emulator, not written directly into the parent terminal; OSC clipboard/link escape sequences are not executed by the renderer. Full modern terminal protocol coverage is not guaranteed.
 - Cursor movement, truecolor/ANSI styles, resize, UTF-8 input, standard control/navigation keys, bracketed paste and primary/alternate screen handling are implemented. Advanced mouse reporting, Kitty graphics/keyboard extensions, sixel, native ConPTY and advanced scrollback navigation are not implemented.
-- Ctrl+Q, F1–F6 and Ctrl+Space are reserved by the host. They are not passed through to a focused CLI. Avoid putting secrets into command history, tasks, mail, memory or screenshots.
+- Ctrl+Q, F1–F8 and Ctrl+Space are reserved by the host. They are not passed through to a focused CLI. Avoid putting secrets into command history, tasks, mail, memory or screenshots.
 - A dedicated, single-threaded PTY broker avoids forkpty from the multi-threaded TUI. Stop terminates known descendants and escalates if necessary. Malicious or independently detached processes can escape lifecycle tracking; this is not a security boundary.
 - Memory, tasks and mail persist locally; live terminal sessions do not resume after app restart. Interrupted tasks are marked failed and never rerun automatically. Existing worktrees are preserved for manual inspection.
 - The Markdown file is a derived projection. A crash can make it temporarily stale; SQLite remains authoritative and reopening regenerates it. Symlink checks at managed entry points do not eliminate local filesystem races.
@@ -203,9 +233,10 @@ pip install -e '.[mcp,test]'
 python -m pytest -q
 python scripts/capture_tui.py
 python scripts/capture_ollama.py
+python scripts/capture_v04.py
 ```
 
-**v0.3 validation: 44 tests passed on Linux / Python 3.13**, including the original terminal/memory/MCP regressions and Ollama fixtures. Six new actual TUI states were visually inspected, including a compact 100×36 model hub.
+**v0.4 automated validation is recorded in [VALIDATION.json](docs/VALIDATION.json)**, including the original terminal/memory/MCP regressions, Ollama fixtures, credential scoping, routing, planner/dispatch, dictation drafts and installer guards. Fifteen v0.4 TUI states were visually inspected individually: setup, provider controls, all eight themes, planner preview, queue approval, voice controls, a real public-sample transcription draft and compact 100×36 setup. Planner screenshots are labeled fixtures, not model-generated evidence.
 
 The tests cover persistent memory, concurrent writers, dependencies, mail acknowledgment, project ownership, real Linux PTY input/controlling TTY, resize, cancellation, parallel **fixture** agents in worktrees, alternate screens, explicit routing policy, guided TUI editing, keyboard focus, compact layout, and **two actual stdio MCP clients**.
 
@@ -215,12 +246,12 @@ No provider account or real Claude/Codex/Gemini model was used in these tests. T
 
 ## Next build steps
 
-1. Validate installed Claude/Codex/Gemini/Kimi versions and permission/resume behavior on real machines.
-2. Add a supervised natural-language planner, acceptance tests, explicit handoff rules and bounded retries — still one authoritative scheduler.
+1. Validate installed Claude/Codex/Gemini/Kimi/Aider and Ollama model versions, permissions and real-device behavior.
+2. Harden the implemented supervised planner/dispatcher with real-model evaluations and acceptance checks.
 3. Attach project memory/mail MCP automatically only with consent, preserving existing provider configuration.
 4. Integrate audited Ruflo modules behind the coordinator interface; no competing memory/scheduler authorities.
-5. Add live usage accounting, quota checks and enforceable spending gates before automatic model selection.
-6. Add local voice capture + transcription (audited permissive components inspired by Handy), inserting an editable draft without auto-executing it.
+5. Keep provider quota tracking out of required scope; retain explicit paid-task authorization and honest user-defined tier labels.
+6. Validate the implemented optional local dictation on microphone devices; improve speech-model/device selection and accessibility.
 7. Native Windows ConPTY, protocol coverage/scrollback, accessibility, migrations/backups and packaging.
 
 ## Design references and license
