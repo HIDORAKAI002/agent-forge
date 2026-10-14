@@ -1,22 +1,37 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "9b208dde8e861f6cac6979f0005a84c786d5873f",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38579430037",
+  "source_commit": "ad17066d6d1283bec9fb71488d285090c2b04303",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38654282371",
   "status": "failed",
-  "tests": 44,
-  "passed": 38,
-  "failed": 2,
+  "tests": 45,
+  "passed": 34,
+  "failed": 7,
   "skipped": 4,
   "failed_cases": [
     {
+      "name": "test_native_direct_conpty_output",
+      "class": "tests.test_windows_isolation",
+      "message": "ValueError: Native DACL restoration mismatch; recovery journal retained"
+    },
+    {
       "name": "test_native_stdio_filesystem_and_cleanup",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: ([((0, 3), 2032127, <PySID object at 0x00000191F9AB9A20>), ((0, 3), 2032127, <PySID object at 0x00000191F9AB9520>), ((...), ((0, 19), 2032127, <PySID object at 0x00000191F9AB9460>), ((0, 19), 2032127, <PySID object at 0x00000191F9AB9B80>)])\nassert [((0, 3), 203...191F9AB9AC0>)] == [((0, 19), 20...191F9AB9B80>)]\n  \n  At index 0 diff: ((0, 3), 2032127, <PySID object at 0x00000191F9AB9A20>) != ((0, 19), 2032127, <PySID object at 0x00000191F9AB9420>)\n  \n  Full diff:\n    [\n        (\n            (\n                0,\n  -             19,\n  ?             ^^\n  +             3,\n  ?             ^\n            ),\n            2032127,\n  -         <PySID object at 0x00000191F9AB9420>,\n  ?                                         ^\n  +         <PySID object at 0x00000191F9AB9A20>,\n  ?                                         ^\n        ),\n        (\n            (\n                0,\n  -             19,\n  ?             ^^\n  +             3,\n  ?             ^\n            ),\n            2032127,\n  -         <PySID object at 0x00000191F9AB9460>,\n  ?                                         ^^\n  +         <PySID object at 0x00000191F9AB9520>,\n  ?                                         ^^\n    "
+      "message": "AssertionError: ('APPROVEDNATIVE_BOUNDARY_DONE\n  ', 'Access is denied.\n  Access is denied.\n  Access is denied.\n  Native boundary cleanup failed; recovery record retained.\n  ')\nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso...'Access is denied.\\nAccess is denied.\\nAccess is denied.\\nNative boundary cleanup failed; recovery record retained.\\n').returncode"
+    },
+    {
+      "name": "test_native_git_control_readonly",
+      "class": "tests.test_windows_isolation",
+      "message": "AssertionError: Access is denied.\n  Native boundary cleanup failed; recovery record retained.\n  \nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso...turncode=125, stdout='DONE\\n', stderr='Access is denied.\\nNative boundary cleanup failed; recovery record retained.\\n').returncode"
     },
     {
       "name": "test_native_isolated_conpty",
       "class": "tests.test_windows_isolation",
       "message": "AssertionError: Native isolated terminal did not render: status=running exit=None broker=None screen='                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n"
+    },
+    {
+      "name": "test_native_profile_grant_creation_and_restore",
+      "class": "tests.test_windows_isolation",
+      "message": "ValueError: Native DACL restoration mismatch; recovery journal retained"
     }
   ]
 }
