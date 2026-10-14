@@ -19,7 +19,11 @@ def main(argv=None):
     add.add_argument("--kind", choices=["fact", "decision", "handoff"], default="handoff")
     add.add_argument("--author", default="agent")
     commands.add_parser("mcp", help="Shared project stdio MCP server")
-    commands.add_parser("doctor", help="List installed CLI harnesses")
+    doctor = commands.add_parser("doctor", help="List harnesses or check secret-free setup readiness")
+    doctor.add_argument("--full", action="store_true", help="Read-only dependency and readiness report")
+    doctor.add_argument("--probe-ollama", action="store_true", help="Probe local Ollama only; no auth or generation")
+    doctor.add_argument("--probe-isolation", action="store_true", help="Run a bounded Linux kernel-isolation startup check")
+    doctor.add_argument("--require", choices=["core","local","local_coding","isolation"], help="Exit nonzero unless this readiness gate passes")
     ruflo = commands.add_parser("ruflo", help="Permission-gated pinned upstream MCP tools")
     ruflo.add_argument("operation", choices=["tools", "run"])
     ruflo.add_argument("--requests-file", help="JSON array of explicit {tool, arguments} requests")
@@ -48,6 +52,11 @@ def main(argv=None):
         elif args.command == "mcp":
             from .mcp_server import serve
             serve(args.project)
+        elif args.command == "doctor" and (args.full or args.probe_ollama or args.probe_isolation or args.require):
+            from .health import diagnose
+            report=diagnose(args.project,ollama=args.probe_ollama,isolation=args.probe_isolation)
+            print(json.dumps(report,indent=2))
+            return 1 if args.require and not report['ready_for'][args.require] else 0
         elif args.command == "doctor":
             from .profiles import profiles
             store = Store(args.project)

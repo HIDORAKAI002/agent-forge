@@ -176,14 +176,6 @@ class Boundary:
                     # Original security is restored after all processes stop.
                     # Concurrent host-side ACL editing is unsupported.
                     original_dacl=saved['dacl']
-                    # The saved ACEs already describe the intended object.
-                    # Mark that inheritance has been computed; otherwise
-                    # Windows may replace saved explicit ACEs with the
-                    # parent's matching inherited ACEs during restoration.
-                    split=original_dacl.find('(')
-                    header=original_dacl if split<0 else original_dacl[:split]
-                    if 'AI' not in header:
-                        original_dacl=original_dacl[:2]+'AI'+original_dacl[2:]
                     sd=S.ConvertStringSecurityDescriptorToSecurityDescriptor(original_dacl,1)
                     # File security APIs address the persisted filesystem
                     # descriptor, not only the open kernel object's descriptor.
@@ -314,6 +306,7 @@ class NativeProcess:
             'ResumeThread':([W.HANDLE],W.DWORD),'WaitForSingleObject':([W.HANDLE,W.DWORD],W.DWORD),
             'GetExitCodeProcess':([W.HANDLE,C.POINTER(W.DWORD)],W.BOOL),
             'ReadFile':([W.HANDLE,C.c_void_p,W.DWORD,C.POINTER(W.DWORD),C.c_void_p],W.BOOL),
+            'PeekNamedPipe':([W.HANDLE,C.c_void_p,W.DWORD,C.POINTER(W.DWORD),C.POINTER(W.DWORD),C.POINTER(W.DWORD)],W.BOOL),
             'WriteFile':([W.HANDLE,C.c_void_p,W.DWORD,C.POINTER(W.DWORD),C.c_void_p],W.BOOL),
             'TerminateJobObject':([W.HANDLE,W.UINT],W.BOOL),
             'QueryInformationJobObject':([W.HANDLE,C.c_int,C.c_void_p,W.DWORD,C.c_void_p],W.BOOL),
@@ -370,6 +363,15 @@ class NativeProcess:
         finally:k.DeleteProcThreadAttributeList(si.lpAttributeList)
 
     def read_bytes(self,handle,count=4096):
+        # Anonymous/ConPTY pipes can retain a short prompt while a synchronous
+        # large ReadFile waits. Read exactly the currently available bytes.
+        available=W.DWORD()
+        while True:
+            if self.closed:raise EOFError
+            if not self.k.PeekNamedPipe(handle,None,0,None,C.byref(available),None):raise EOFError
+            if available.value:break
+            time.sleep(.01)
+        count=min(count,available.value)
         buffer=C.create_string_buffer(count);done=W.DWORD()
         if not self.k.ReadFile(handle,buffer,count,C.byref(done),None):raise EOFError
         if not done.value:raise EOFError

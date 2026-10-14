@@ -32,7 +32,7 @@ from .planner import Planner, DispatchBatch, queue_plan, validate_plan
 from .voice import Voice, MODELS
 from .store import managed
 
-COMMANDS = ["/sandbox", "/ruflo", "/setup", "/plan", "/dispatch", "/pause", "/voice", "/models", "/tutorial", "/ollama", "/help", "/launch", "/sessions", "/focus", "/stop", "/task", "/tasks", "/run", "/approve", "/remember", "/memory", "/send", "/inbox", "/ack", "/engines", "/route", "/theme", "/quit"]
+COMMANDS = ["/doctor", "/sandbox", "/ruflo", "/setup", "/plan", "/dispatch", "/pause", "/voice", "/models", "/tutorial", "/ollama", "/help", "/launch", "/sessions", "/focus", "/stop", "/task", "/tasks", "/run", "/approve", "/remember", "/memory", "/send", "/inbox", "/ack", "/engines", "/route", "/theme", "/quit"]
 KEY_BYTES = {"enter":"\r", "tab":"\t", "shift+tab":"\x1b[Z", "backspace":"\x7f", "escape":"\x1b", "up":"\x1b[A", "down":"\x1b[B", "right":"\x1b[C", "left":"\x1b[D", "home":"\x1b[H", "end":"\x1b[F", "delete":"\x1b[3~", "insert":"\x1b[2~", "pageup":"\x1b[5~", "pagedown":"\x1b[6~"}
 ANSI_COLORS = {"default":"#d9e4f4", "black":"#172236", "red":"#f37e91", "green":"#78ddae", "brown":"#f2ca7c", "blue":"#75a7ff", "magenta":"#c3a0ff", "cyan":"#75dcf0", "white":"#e4edfa", "brightblack":"#788aa5", "brightred":"#ff95a7", "brightgreen":"#9bf6c6", "brightbrown":"#ffe49b", "brightblue":"#a3c4ff", "brightmagenta":"#d7b5ff", "brightcyan":"#9df1ff", "brightwhite":"#ffffff"}
 
@@ -769,7 +769,7 @@ class ForgeApp(App):
         table = Table(title="COMMAND DECK", border_style="#685791")
         table.add_column("Command", style="#65d7ff")
         table.add_column("Action", style="#c4d2e8")
-        for command, description in [("/sandbox", "Project write scope, approved read-only references and network permission"), ("/ruflo connect|sync|search QUERY|off", "Pinned semantic-memory index and advisory routing; no agent execution"), ("/setup · F7", "Provider keys, theme picker, routing and local dictation"), ("/plan · F8", "Local supervisor plan; preview/edit before queueing"), ("/dispatch · /pause", "Authorize bounded ready-task dispatch / stop future launches"), ("/voice", "Local speech draft; never auto-submit"), ("/models · /tutorial", "Local Ollama selection, live layer % and setup guide"), ("/ollama pull|use <model>", "Confirm download; preload and persist local operator"), ("/launch <engine>", "Embed a real CLI; no API simulation"), ("/focus <session-id>", "Return to a terminal; Ctrl+C goes to the CLI"), ("/task", "Guided task editor; does not launch work"), ("/task <engine> <title> :: <prompt>", "Create a queued task"), ("/run <task-id>", "Confirm isolated task execution"), ("/approve <task-id>", "Record human review; no merge"), ("/remember <fact|decision|handoff> <text>", "Save human-verified project context"), ("/memory [search]", "Inspect/filter persistent memory"), ("/send <from> <to> <text>", "Send project-local agent mail"), ("/inbox <name> /ack <id> <recipient>", "Read or acknowledge durable mail"), ("/route <routine|high>", "Recommend a user-configured tier; never dispatch"), ("/theme <name>", "Eight saved terminal palettes; Setup has a picker"), ("/stop <session-id>", "Confirm process-group termination"), ("/quit", "Confirm stopping running sessions and exit")]:
+        for command, description in [("/doctor", "Read-only setup checks; no credentials or network access"), ("/sandbox", "Project write scope, approved read-only references and network permission"), ("/ruflo connect|sync|search QUERY|tools|off", "Pinned memory/routing bridge and explicitly reviewed isolated tools"), ("/setup · F7", "Provider keys, theme picker, routing and local dictation"), ("/plan · F8", "Local supervisor plan; preview/edit before queueing"), ("/dispatch · /pause", "Authorize bounded ready-task dispatch / stop future launches"), ("/voice", "Local speech draft; never auto-submit"), ("/models · /tutorial", "Local Ollama selection, live layer % and setup guide"), ("/ollama pull|use <model>", "Confirm download; preload and persist local operator"), ("/launch <engine>", "Embed a real CLI; no API simulation"), ("/focus <session-id>", "Return to a terminal; Ctrl+C goes to the CLI"), ("/task", "Guided task editor; does not launch work"), ("/task <engine> <title> :: <prompt>", "Create a queued task"), ("/run <task-id>", "Confirm isolated task execution"), ("/approve <task-id>", "Record human review; no merge"), ("/remember <fact|decision|handoff> <text>", "Save human-verified project context"), ("/memory [search]", "Inspect/filter persistent memory"), ("/send <from> <to> <text>", "Send project-local agent mail"), ("/inbox <name> /ack <id> <recipient>", "Read or acknowledge durable mail"), ("/route <routine|high>", "Recommend a user-configured tier; never dispatch"), ("/theme <name>", "Eight saved terminal palettes; Setup has a picker"), ("/stop <session-id>", "Confirm process-group termination"), ("/quit", "Confirm stopping running sessions and exit")]:
             table.add_row(command, description)
         self.say(table)
         self.action_composer()
@@ -1091,7 +1091,15 @@ class ForgeApp(App):
 
     def execute(self, command: str):
         name, _, rest = command.partition(" ")
-        if name=="/ruflo":
+        if name=="/doctor":
+            from .health import diagnose
+            report=diagnose(self.runtime.store.project)
+            missing=', '.join(k for k,v in report['modules'].items() if not v) or 'none'
+            self.action_tab('workbench')
+            self.ui('#conversation').display=True
+            self.ui('#terminal-view').display=False
+            self.say(f"SETUP CHECK / no network requests or credentials read\nCore dependencies: {'ready' if report['ready_for']['core'] else 'incomplete'}\nMissing modules (optional features included): {missing}\nFilesystem backend: {report['isolation']['status']}\nLocal Ollama: not probed; use Models → Refresh.\nFor explicit loopback/kernel checks: agent-command doctor --full --probe-ollama --probe-isolation\nNo consumer Pro subscription is required for local models.")
+        elif name=="/ruflo":
             operation,_,query=rest.partition(" ")
             if operation=="tools":self.action_tab("setup");self.setup_action("setup-ruflo-tools")
             elif operation=="search":self.ruflo.request("search",query)
