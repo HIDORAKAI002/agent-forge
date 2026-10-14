@@ -1,17 +1,17 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "ad17066d6d1283bec9fb71488d285090c2b04303",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38654282371",
+  "source_commit": "0685d3331492d17750341ab3eba70fe7ffff8be3",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38654903498",
   "status": "failed",
-  "tests": 45,
-  "passed": 34,
+  "tests": 55,
+  "passed": 44,
   "failed": 7,
   "skipped": 4,
   "failed_cases": [
     {
       "name": "test_native_direct_conpty_output",
       "class": "tests.test_windows_isolation",
-      "message": "ValueError: Native DACL restoration mismatch; recovery journal retained"
+      "message": "AssertionError: direct exit=0 alive=False output='\\x1b[?9001h\\x1b[?1004h'; cleanup: ValueError: Native DACL restoration mismatch; recovery journal retained\nassert not [\"direct exit=0 alive=False output='\\\\x1b[?9001h\\\\x1b[?1004h'\", 'cleanup: ValueError: Native DACL restoration mismatch; recovery journal retained']"
     },
     {
       "name": "test_native_stdio_filesystem_and_cleanup",
