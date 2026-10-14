@@ -1,22 +1,32 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "f9bb3a3b7a5f95e47b9dd0268f0e7e3aa60add4d",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38574762314",
+  "source_commit": "a64ea32fc16805367619176f5be7e4dba715d9b8",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38576064785",
   "status": "failed",
-  "tests": 41,
-  "passed": 35,
-  "failed": 2,
+  "tests": 42,
+  "passed": 34,
+  "failed": 4,
   "skipped": 4,
   "failed_cases": [
     {
       "name": "test_native_stdio_filesystem_and_cleanup",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: assert ('APPROVED' in 'NATIVE_BOUNDARY_DONE\\n')\n +  where 'NATIVE_BOUNDARY_DONE\\n' = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso...tory name, or volume label syntax is incorrect.\\nThe filename, directory name, or volume label syntax is incorrect.\\n').stdout"
+      "message": "AssertionError: ('D:(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;LA)', 'D:AI(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;FA;;;LA)S:AINO_ACCESS_CONTROL')\nassert 'D:(A;OICI;FA...OICI;FA;;;LA)' == 'D:AI(A;OICII...CCESS_CONTROL'\n  \n  - D:AI(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;FA;;;LA)S:AINO_ACCESS_CONTROL\n  ?   --       --                --                --         ---------------------\n  + D:(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;LA)"
+    },
+    {
+      "name": "test_native_git_control_readonly",
+      "class": "tests.test_windows_isolation",
+      "message": "AssertionError: assert 'CORRUPT \\n' == 'CANONICAL'\n  \n  - CANONICAL\n  + CORRUPT"
     },
     {
       "name": "test_native_isolated_conpty",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: Native isolated terminal did not render"
+      "message": "AssertionError: Native isolated terminal did not render: status=running exit=None broker=None screen='                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n"
+    },
+    {
+      "name": "test_ui_tool_discovery_and_execution_require_review",
+      "class": "tests.test_ruflo_tools",
+      "message": "AssertionError: assert 'inputSchema' in '{}'\n +  where '{}' = TextArea(id='ruflo-tool-schema', classes='tool-json').text\n +    where TextArea(id='ruflo-tool-schema', classes='tool-json') = ui('#ruflo-tool-schema', <class 'textual.widgets._text_area.TextArea'>)\n +      where ui = ForgeApp(title='AGENT FORGE', classes={'-theme-forge-nebula', '-dark-mode'}, pseudo_classes={'focus', 'dark'}).ui"
     }
   ]
 }
