@@ -71,10 +71,12 @@ class Boundary:
 
     @staticmethod
     @contextmanager
-    def handle(path):
+    def handle(path,*,write=True):
         import win32file,win32con
         unlinked(path)
-        h=win32file.CreateFile(str(path),0x20000|0x40000|0x80000,
+        access=0x20000|0x80
+        if write:access|=0x40000|0x80000
+        h=win32file.CreateFile(str(path),access,
                                    win32con.FILE_SHARE_READ|win32con.FILE_SHARE_WRITE|win32con.FILE_SHARE_DELETE,
                                    None,win32con.OPEN_EXISTING,0x02000000|0x00200000,None)
         try:yield h
@@ -183,7 +185,9 @@ class Boundary:
                     if 'AI' not in header:
                         original_dacl=original_dacl[:2]+'AI'+original_dacl[2:]
                     sd=S.ConvertStringSecurityDescriptorToSecurityDescriptor(original_dacl,1)
-                    S.SetKernelObjectSecurity(h,S.DACL_SECURITY_INFORMATION,sd)
+                    # File security APIs address the persisted filesystem
+                    # descriptor, not only the open kernel object's descriptor.
+                    S.SetFileSecurity(str(p),S.DACL_SECURITY_INFORMATION,sd)
         # Verify after all hierarchy mutations, before discarding the journal.
         # A cleanup mismatch is a real failure, not a successful best effort.
         for item in record['objects']:
@@ -232,9 +236,14 @@ class Boundary:
             # Snapshot integrity labels BEFORE any inheritable label changes.
             objects=[]
             for p,is_project in [(p,True) for p in paths(self.project)]+[(p,False) for root in grants for p in paths(root)]:
-                with self.handle(p) as h:
-                    dacl=S.ConvertSecurityDescriptorToStringSecurityDescriptor(S.GetSecurityInfo(h,S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION),1,S.DACL_SECURITY_INFORMATION)
-                    objects.append({'path':str(p),'project':is_project,'identity':self.identity(h),'label':self.label(h) if is_project else None,'dacl':dacl})
+                # Capture persisted security before opening a write-capable
+                # handle; legacy inheritance normalization must not become our
+                # supposed original descriptor.
+                original=S.GetNamedSecurityInfo(str(p),S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|LABEL_INFO)
+                dacl=S.ConvertSecurityDescriptorToStringSecurityDescriptor(original,1,S.DACL_SECURITY_INFORMATION)
+                label=S.ConvertSecurityDescriptorToStringSecurityDescriptor(original,1,S.SACL_SECURITY_INFORMATION) if is_project else None
+                with self.handle(p,write=False) as h:
+                    objects.append({'path':str(p),'project':is_project,'identity':self.identity(h),'label':label,'dacl':dacl,'protected':bool(original.GetSecurityDescriptorControl()[0]&0x1000)})
             sid_pointer=C.c_void_p()
             result=self.userenv.CreateAppContainerProfile(self.name,self.name,'Temporary Agent Forge project boundary',None,0,C.byref(sid_pointer))
             if result<0:raise OSError(result,'CreateAppContainerProfile failed; no unrestricted fallback')

@@ -16,6 +16,30 @@ def setup(tmp_path,monkeypatch):
     sandbox=Sandbox(project);sandbox.save({'enabled':True,'network':False,'read_only':[str(reference)]})
     return project,reference,denied,sandbox
 
+def test_native_direct_conpty_output(tmp_path,monkeypatch):
+    """Separate OS pseudo-console failures from the JSON terminal broker."""
+    import threading
+    from forge.windows_isolation import Boundary,NativeProcess
+    p,r,d,s=setup(tmp_path,monkeypatch)
+    boundary=Boundary(p,s.policy);child=None;output=[]
+    try:
+        boundary.open()
+        child=NativeProcess([os.environ['COMSPEC'],'/d','/c','echo DIRECT_CONPTY_KERNEL_OK'],p,dict(os.environ),boundary,pty=True)
+        def read():
+            try:
+                while True:output.append(child.read())
+            except (EOFError,OSError):pass
+        thread=threading.Thread(target=read,daemon=True);thread.start()
+        end=time.monotonic()+10
+        while time.monotonic()<end:
+            if 'DIRECT_CONPTY_KERNEL_OK' in ''.join(output):break
+            if not child.isalive():thread.join(1);break
+            time.sleep(.03)
+        assert 'DIRECT_CONPTY_KERNEL_OK' in ''.join(output),f'direct exit={child.exitstatus} alive={child.isalive()} output={repr("".join(output))[:400]}'
+    finally:
+        if child:child.close()
+        boundary.close()
+
 
 def test_native_stdio_filesystem_and_cleanup(tmp_path,monkeypatch):
     import win32security as S
@@ -23,6 +47,7 @@ def test_native_stdio_filesystem_and_cleanup(tmp_path,monkeypatch):
     before=S.GetNamedSecurityInfo(str(p),S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|0x10)
     before_acl=[before.GetSecurityDescriptorDacl().GetAce(i) for i in range(before.GetSecurityDescriptorDacl().GetAceCount())]
     before_label=before.GetSecurityDescriptorSacl()
+    before_protected=before.GetSecurityDescriptorControl()[0]&0x1000
     code=f'echo PROJECT_OK>"{p / "written.txt"}" & type "{r / "read.txt"}" & type "{d / "secret.txt"}" & echo ESCAPE>"{d / "outside.txt"}" & echo ESCAPE>"{r / "blocked.txt"}" & echo NATIVE_BOUNDARY_DONE'
     argv,env=s.wrap([os.environ['COMSPEC'],'/d','/c',code],p,dict(os.environ,OTHER_API_KEY='FAKE_NOT_INHERITED'))
     result=subprocess.run(argv,cwd=p,env=env,capture_output=True,text=True,timeout=90)
@@ -34,6 +59,7 @@ def test_native_stdio_filesystem_and_cleanup(tmp_path,monkeypatch):
     # Empty-vs-absent SACL serialization is not a permission change. Actual
     # ACEs (including inherited flags) and integrity entries must be restored.
     assert before_acl==after_acl,(before_acl,after_acl)
+    assert before_protected==(after.GetSecurityDescriptorControl()[0]&0x1000)
     after_label=after.GetSecurityDescriptorSacl()
     entries=lambda acl:[] if acl is None else [acl.GetAce(i) for i in range(acl.GetAceCount())]
     assert entries(before_label)==entries(after_label)
