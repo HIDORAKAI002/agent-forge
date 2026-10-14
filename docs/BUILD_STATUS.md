@@ -29,8 +29,8 @@
 ## Not completed / not claimed production-ready
 
 - Native Windows device/provider combinations beyond the passing 3.11/3.13 native CI suite remain unverified.
-- Native Windows/macOS OS sandbox is still missing. Linux/WSL Bubblewrap is implemented and tested; OFF mode remains unrestricted, and worktrees by themselves are never a sandbox.
-- Broad Ruflo catalog access is now available through an explicitly reviewed sandboxed CLI gateway, separate from the TUI memory/routing bridge. Not every upstream backend is implemented or certified; no arbitrary credentials or host access are forwarded. Ruflo is not a second authoritative Forge scheduler or memory store.
+- Native Windows LPAC filesystem isolation exists as an experimental acceptance build, disabled by default while native security/console/runtime gates remain unresolved. macOS enforcement is not implemented. Linux/WSL Bubblewrap is tested; OFF mode remains unrestricted and worktrees alone are not a sandbox.
+- Broad Ruflo catalog access is now available through an explicitly reviewed sandboxed CLI gateway, available through both CLI and the reviewed Setup tool browser, separate from the memory/routing bridge. Not every upstream backend is implemented or certified; no arbitrary credentials or host access are forwarded. Ruflo is not a second authoritative Forge scheduler or memory store.
 - Actual provider CLI account validation, broader Aider coding/sandbox validation, OS keyring/device behavior and microphone device testing remain separate from fixture-based automated tests.
 
 ## Verified evidence

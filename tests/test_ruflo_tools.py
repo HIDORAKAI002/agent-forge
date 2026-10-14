@@ -133,7 +133,11 @@ async def test_ui_tool_discovery_and_execution_require_review(tmp_path,monkeypat
             app.runtime.sandbox.policy['enabled']=True
             app.setup_action('setup-ruflo-tools');await pilot.pause();await pilot.press('n');await pilot.pause();assert calls==[]
             app.tool_gateway.catalog=CATALOG;app.filter_ruflo_tools()
+            app.action_tab('setup');await pilot.pause()
             app.ui('#ruflo-tool-name',Select).value='example';await pilot.pause()
+            for _ in range(40):
+                if 'inputSchema' in app.ui('#ruflo-tool-schema',TextArea).text:break
+                await pilot.pause(.05)
             assert 'inputSchema' in app.ui('#ruflo-tool-schema',TextArea).text
             review={'requests':[{'tool':'example','arguments':{'value':'ok'}}],'digest':'f'*64,'policy':app.runtime.sandbox.policy}
             app.tool_gateway.events.put(('review',review));app.pump();await pilot.pause();await pilot.press('n');await pilot.pause();assert calls==[]

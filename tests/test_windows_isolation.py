@@ -112,3 +112,15 @@ def test_native_broker_interruption_recovers_grants(tmp_path,monkeypatch):
     finally:
         if wrapper.poll() is None:wrapper.kill();wrapper.wait(timeout=10)
         for pipe in (wrapper.stdin,wrapper.stdout,wrapper.stderr):pipe.close()
+
+def test_native_postlaunch_junction_cannot_grant_external_access(tmp_path,monkeypatch):
+    p,r,d,s=setup(tmp_path,monkeypatch)
+    junction=p/'late-junction'
+    command=f'mklink /J "{junction}" "{d}" & type "{junction / "secret.txt"}" & echo ESCAPE>"{junction / "outside.txt"}" & echo PROJECT_OK>"{p / "allowed.txt"}" & echo FINISHED'
+    argv,env=s.wrap([os.environ['COMSPEC'],'/d','/c',command],p,dict(os.environ))
+    result=subprocess.run(argv,cwd=p,env=env,capture_output=True,text=True,timeout=90)
+    assert result.returncode==0,(result.stdout,result.stderr)
+    assert (p/'allowed.txt').exists()
+    assert 'HIDDEN' not in result.stdout and not (d/'outside.txt').exists()
+    assert (d/'secret.txt').read_text()=='HIDDEN'
+    assert not list((tmp_path/'trusted-config/windows-boundary').glob('AgentForge.*.json'))

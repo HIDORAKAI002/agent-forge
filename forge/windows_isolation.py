@@ -98,7 +98,7 @@ class Boundary:
     def set_label(handle,text):
         import win32security as S
         sd=S.ConvertStringSecurityDescriptorToSecurityDescriptor(text or 'S:',1)
-        S.SetSecurityInfo(handle,S.SE_FILE_OBJECT,LABEL_INFO,None,None,None,sd.GetSecurityDescriptorSacl())
+        S.SetKernelObjectSecurity(handle,LABEL_INFO,sd)
 
     @staticmethod
     def grant(handle,sid,mask,denied=0,inherit=False):
@@ -114,8 +114,11 @@ class Boundary:
         start=original.find('(')
         prefix,body=(original[:start],original[start:]) if start>=0 else (original,'')
         flags='OICI' if inherit else '';name=S.ConvertSidToStringSid(sid)
-        additions=(f'(D;{flags};0x{denied:x};;;{name})' if denied else '')+f'(A;{flags};0x{mask:x};;;{name})'
-        updated=S.ConvertStringSecurityDescriptorToSecurityDescriptor(prefix+additions+body,1)
+        denial=f'(D;{flags};0x{denied:x};;;{name})' if denied else ''
+        allowance=f'(A;{flags};0x{mask:x};;;{name})'
+        # Keep pre-existing denials ahead of our allowance as well. Otherwise
+        # an explicit profile grant could short-circuit an owner's old denial.
+        updated=S.ConvertStringSecurityDescriptorToSecurityDescriptor(prefix+denial+body+allowance,1)
         # Avoid SetSecurityInfo's automatic inheritance propagation changing
         # descendants before their individually reviewed grants are applied.
         S.SetKernelObjectSecurity(handle,S.DACL_SECURITY_INFORMATION,updated)
@@ -166,12 +169,12 @@ class Boundary:
                 identity=self.identity(h);self.revoke(h,sid)
                 if is_project:
                     saved=original.get(identity)
+                    self.set_label(h,saved['label'] if saved else 'S:(ML;;NW;;;ME)')
                     if saved and saved.get('dacl'):
                         # Original security is restored after all processes stop.
                         # Concurrent host-side ACL editing is unsupported.
                         sd=S.ConvertStringSecurityDescriptorToSecurityDescriptor(saved['dacl'],1)
                         S.SetKernelObjectSecurity(h,S.DACL_SECURITY_INFORMATION,sd)
-                    self.set_label(h,saved['label'] if saved else 'S:(ML;;NW;;;ME)')
         if record.get('loopback'):
             import subprocess
             result=subprocess.run(['CheckNetIsolation.exe','LoopbackExempt','-d','-n='+record['name']],capture_output=True,timeout=15)

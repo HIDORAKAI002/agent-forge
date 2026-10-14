@@ -61,7 +61,7 @@ The 1.5B model passed the functional smoke test; 0.5B generated invalid dependen
 - [x] Bind approval to arguments, tool definitions, project and permissions; validate every request before executing any.
 - [x] Keep upstream errors and timeouts visible; do not imply rollback or full backend implementation.
 - [ ] Certify every upstream tool/backend end-to-end; optional dependencies and upstream unsupported operations remain real limitations.
-- [ ] Native Windows filesystem enforcement (not supplied by ConPTY/Job Objects, no unrestricted fallback).
+- [ ] Release-enable native Windows filesystem enforcement after acceptance; the experimental LPAC implementation is not supplied by ConPTY/Job Objects alone and never falls back unrestricted.
 - [x] Launch trusted Python brokers and generated application commands in isolated Python mode; project `forge/`, `sitecustomize.py` and `PYTHONPATH` must not replace host-side code.
 
 ## Native backend and interface acceptance build
