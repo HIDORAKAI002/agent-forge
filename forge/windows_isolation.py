@@ -192,7 +192,10 @@ class Boundary:
             with self.handle(p) as h:
                 if self.identity(h)!=item['identity']:continue
                 expected=S.ConvertStringSecurityDescriptorToSecurityDescriptor(item['dacl'],1).GetSecurityDescriptorDacl()
-                actual=S.GetSecurityInfo(h,S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION).GetSecurityDescriptorDacl()
+                # Use the same named-filesystem query as the external acceptance
+                # check, including integrity information. Handle-only queries
+                # can miss inheritance normalization observed when reopening.
+                actual=S.GetNamedSecurityInfo(str(p),S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|LABEL_INFO).GetSecurityDescriptorDacl()
                 entries=lambda acl:[] if acl is None else [acl.GetAce(i) for i in range(acl.GetAceCount())]
                 if entries(expected)!=entries(actual):
                     raise ValueError('Native DACL restoration mismatch; recovery journal retained')

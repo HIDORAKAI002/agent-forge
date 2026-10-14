@@ -8,9 +8,9 @@
 
 ## Native Windows is NOT release-ready
 
-Last native readback for source `6980ac1a0f6e46f2c90c2cbb66cc56c381d9e83e`: Windows/Python 3.13 had 38 passes, 2 failures, 4 skips. Run: https://github.com/HIDORAKAI002/agent-forge/actions/runs/38577660469
+Last native readback for source `309789e72e82faba2a927a11f83242478172bd93`: Windows/Python 3.13 had 38 passes, 2 failures, 4 skips. Run: https://github.com/HIDORAKAI002/agent-forge/actions/runs/38578586718
 
-Git write protection, approved read access, external write/read denial, crash recovery and a late-junction escape check passed their assertions. Exact original ACL restoration and isolated interactive ConPTY startup still failed. The next cleanup change preserves computed ACE inheritance and verifies restoration before removing the recovery journal; it must pass native CI, not Linux skips. The backend remains experimental and disabled by default. Standard-user/runtime compatibility, adversarial ACL mutation, network/local-Ollama and wider escape checks remain required.
+Git write protection, approved read access, external write/read denial, crash recovery and a late-junction escape check passed their assertions. Exact original ACL restoration and isolated interactive ConPTY startup still failed. The cleanup changes did not resolve these two failures. A further guard uses the same named-filesystem security query as the external test before removing the recovery journal; it still requires native CI, not Linux skips. The backend remains experimental and disabled by default. Standard-user/runtime compatibility, adversarial ACL mutation, network/local-Ollama and wider escape checks remain required.
 
 ## Ruflo scope
 
