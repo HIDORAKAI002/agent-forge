@@ -1,17 +1,17 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "cb4c19431a610d0e4f3f762516102d4661fc928d",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38576920733",
+  "source_commit": "6980ac1a0f6e46f2c90c2cbb66cc56c381d9e83e",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38577660469",
   "status": "failed",
-  "tests": 43,
-  "passed": 37,
+  "tests": 44,
+  "passed": 38,
   "failed": 2,
   "skipped": 4,
   "failed_cases": [
     {
       "name": "test_native_stdio_filesystem_and_cleanup",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: ([((0, 3), 2032127, <PySID object at 0x00000231D5753270>), ((0, 3), 2032127, <PySID object at 0x00000231D5752FF0>), ((...), ((0, 19), 2032127, <PySID object at 0x00000231D5753150>), ((0, 19), 2032127, <PySID object at 0x00000231D5752DD0>)])\nassert [((0, 3), 203...231D57532D0>)] == [((0, 19), 20...231D5752DD0>)]\n  \n  At index 0 diff: ((0, 3), 2032127, <PySID object at 0x00000231D5753270>) != ((0, 19), 2032127, <PySID object at 0x00000231D5753070>)\n  \n  Full diff:\n    [\n        (\n            (\n                0,\n  -             19,\n  ?             ^^\n  +             3,\n  ?             ^\n            ),\n            2032127,\n  -         <PySID object at 0x00000231D5753070>,\n  ?                                         ^\n  +         <PySID object at 0x00000231D5753270>,\n  ?                                         ^\n        ),\n        (\n            (\n                0,\n  -             19,\n  ?             ^^\n  +             3,\n  ?             ^\n            ),\n            2032127,\n  -         <PySID object at 0x00000231D5753150>,\n  ?                                        ^^^\n  +         <PySID object at 0x00000231D5752FF0>,\n  ?                                        ^^^\n    "
+      "message": "AssertionError: ([((0, 3), 2032127, <PySID object at 0x000001D60F91A4F0>), ((0, 3), 2032127, <PySID object at 0x000001D60F91A230>), ((...), ((0, 19), 2032127, <PySID object at 0x000001D60F91A670>), ((0, 19), 2032127, <PySID object at 0x000001D60F91A650>)])\nassert [((0, 3), 203...1D60F91A8B0>)] == [((0, 19), 20...1D60F91A650>)]\n  \n  At index 0 diff: ((0, 3), 2032127, <PySID object at 0x000001D60F91A4F0>) != ((0, 19), 2032127, <PySID object at 0x000001D60F91A5D0>)\n  \n  Full diff:\n    [\n        (\n            (\n                0,\n  -             19,\n  ?             ^^\n  +             3,\n  ?             ^\n            ),\n            2032127,\n  -         <PySID object at 0x000001D60F91A5D0>,\n  ?                                         ^^\n  +         <PySID object at 0x000001D60F91A4F0>,\n  ?                                         ^^\n        ),\n        (\n            (\n                0,\n  -             19,\n  ?             ^^\n  +             3,\n  ?             ^\n            ),\n            2032127,\n  -         <PySID object at 0x000001D60F91A670>,\n  ?                                         ^^\n  +         <PySID object at 0x000001D60F91A230>,\n  ?                                         ^^\n  "
     },
     {
       "name": "test_native_isolated_conpty",
