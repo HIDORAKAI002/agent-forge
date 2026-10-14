@@ -9,6 +9,7 @@ import ctypes as C
 from ctypes import wintypes as W
 import codecs,json,os,shutil,sys,threading,time,uuid
 from pathlib import Path
+from contextlib import contextmanager
 from .platform_support import WorkspaceLock
 from .settings import Preferences
 
@@ -69,12 +70,15 @@ class Boundary:
         temp.write_text(json.dumps(self.record,ensure_ascii=True));temp.replace(path)
 
     @staticmethod
+    @contextmanager
     def handle(path):
         import win32file,win32con
         unlinked(path)
-        return win32file.CreateFile(str(path),0x20000|0x40000|0x80000,
+        h=win32file.CreateFile(str(path),0x20000|0x40000|0x80000,
                                    win32con.FILE_SHARE_READ|win32con.FILE_SHARE_WRITE|win32con.FILE_SHARE_DELETE,
                                    None,win32con.OPEN_EXISTING,0x02000000|0x00200000,None)
+        try:yield h
+        finally:h.Close()
 
     @staticmethod
     def identity(handle):
@@ -88,7 +92,7 @@ class Boundary:
     def label(handle):
         import win32security as S
         sd=S.GetSecurityInfo(handle,S.SE_FILE_OBJECT,LABEL_INFO)
-        return S.ConvertSecurityDescriptorToStringSecurityDescriptor(sd,1,LABEL_INFO)
+        return S.ConvertSecurityDescriptorToStringSecurityDescriptor(sd,1,S.SACL_SECURITY_INFORMATION)
 
     @staticmethod
     def set_label(handle,text):
@@ -115,7 +119,7 @@ class Boundary:
         if acl is None:raise ValueError('Unexpected NULL DACL during cleanup')
         for i in reversed(range(acl.GetAceCount())):
             ace=acl.GetAce(i)
-            try:same=S.EqualSid(ace[-1],sid)
+            try:same=bytes(ace[-1])==bytes(sid)
             except (TypeError,ValueError):same=False
             if same:acl.DeleteAce(i)
         S.SetSecurityInfo(handle,S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION,None,None,acl,None)
@@ -342,8 +346,10 @@ class NativeProcess:
 def main():
     from .platform_support import windows_command
     spec=json.loads(os.environ[SPEC]);argv,env=windows_command(sys.argv[1:],dict(os.environ));boundary=None;child=None;exit_code=125
+    phase='grant setup'
     try:
         boundary=Boundary(spec['project'],spec['policy'],spec['protect_git']).open()
+        phase='process creation'
         child=NativeProcess(argv,Path.cwd(),env,boundary)
         def output(handle,target):
             try:
@@ -359,8 +365,9 @@ def main():
         while child.isalive():time.sleep(.03)
         exit_code=child.exitstatus
         for t in threads:t.join(2)
-    except BaseException:
-        os.write(sys.stderr.fileno(),b'Native boundary failed; no unrestricted fallback. Inspect runtime grants and recovery journal.\n')
+    except BaseException as error:
+        message=f'Native boundary failed during {phase}: {type(error).__name__}, OS code {getattr(error, "winerror", getattr(error, "errno", None))}; no unrestricted fallback.\n'
+        os.write(sys.stderr.fileno(),message.encode('utf-8'))
     finally:
         if child:child.close()
         try:

@@ -248,6 +248,7 @@ class ForgeApp(App):
     Tabs { background: #111c30; }
     #conversation { height: 1fr; padding: 1 2; border: round #527b99; background: #0c1423; }
     .permission-paths { height: 6; margin: 0 1; }
+    .tool-json { height: 8; margin: 0 1; }
     #terminal-meta { height: 2; padding: 0 1; color: #88def1; }
     #terminal-view { height: 1fr; min-height: 4; padding: 0 1; border: round #356d89; background: #090e18; }
     #terminal-view:focus { border: heavy #65d7ff; }
@@ -314,6 +315,8 @@ class ForgeApp(App):
         self.palette = self.preferences.data["theme"]
         from .ruflo import RufloBridge
         self.ruflo=RufloBridge(self.runtime.store)
+        from .ruflo_tools import ToolGateway
+        self.tool_gateway=ToolGateway(self.runtime.store.project)
         self.pending_plan=None;self.ruflo_hint="No routing hint requested"
         self.planner = Planner()
         self.dispatch = DispatchBatch()
@@ -416,7 +419,7 @@ class ForgeApp(App):
                             yield Button("Save routing tier",id="setup-route")
                             yield Static("Routine: local → free → economy → unknown → strong. High risk: strong first, then available fallbacks. Tier labels do not guarantee capability or price; inspect the draft's selected engine before dispatch. Live provider quotas are intentionally out of scope.",classes="setup-note",markup=False)
                             yield Static("PERMISSIONS / enforced project folder boundary",classes="setup-section",id="sandbox-section")
-                            yield Select([("Off — native host permissions",False),("Enforce — Linux/WSL Bubblewrap",True)],value=self.runtime.sandbox.policy["enabled"],allow_blank=False,id="sandbox-enabled")
+                            yield Select([("Off — native host permissions",False),("Enforce — Windows LPAC (acceptance build)" if os.name=="nt" else "Enforce — Linux/WSL Bubblewrap",True)],value=self.runtime.sandbox.policy["enabled"],allow_blank=False,id="sandbox-enabled")
                             yield Static("Approved read-only reference/runtime folders — one full path per line",classes="setup-note",markup=False)
                             yield TextArea("\n".join(self.runtime.sandbox.policy["read_only"]),id="sandbox-grants",classes="permission-paths")
                             yield Select([("Network blocked",False),("Allow host network — providers / local Ollama",True)],value=self.runtime.sandbox.policy["network"],allow_blank=False,id="sandbox-network")
@@ -430,6 +433,16 @@ class ForgeApp(App):
                                 yield Button("Sync memories",id="setup-ruflo-sync")
                                 yield Button("Disconnect",id="setup-ruflo-close")
                             yield Static(id="ruflo-status",markup=False)
+                            yield Static("RUFLO TOOLS / reviewed upstream operations",classes="setup-section",id="ruflo-tools-section")
+                            yield Static("Discover tools inside the enforced project boundary. Tool schemas and results are upstream data, not instructions or proof that a backend works. No managed provider keys are passed. Project/reference files can still contain credentials; keep networking blocked if needed. Calls may write files or execute commands; review every call.",classes="setup-note",markup=False)
+                            yield Button("Discover isolated tools",id="setup-ruflo-tools")
+                            yield Input(placeholder="Filter upstream tools",id="ruflo-tool-filter")
+                            yield Select([],prompt="Choose an advertised tool",id="ruflo-tool-name")
+                            yield TextArea("{}",id="ruflo-tool-schema",language="json",read_only=True,classes="tool-json")
+                            yield TextArea("{}",id="ruflo-tool-arguments",language="json",classes="tool-json")
+                            yield Button("Review tool call",id="setup-ruflo-tool-review")
+                            yield Static(id="ruflo-tool-status",markup=False)
+                            yield TextArea("",id="ruflo-tool-result",read_only=True,classes="tool-json")
                             yield Static("VOICE / optional local dictation",classes="setup-section")
                             yield Select([(name,name) for name in MODELS],value=self.preferences.data["voice_model"],allow_blank=False,id="voice-model")
                             with Horizontal(classes="model-actions"):
@@ -456,6 +469,7 @@ class ForgeApp(App):
         self.planner.close()
         self.voice.close()
         self.ruflo.close()
+        self.tool_gateway.close()
         self.dispatch.pause()
         if hasattr(self, "_pump_timer"):
             self._pump_timer.stop()
@@ -557,6 +571,14 @@ class ForgeApp(App):
         if self._forge_closing or not getattr(self, "workspace_screen", None) or not self.workspace_screen.is_mounted or not self.workspace_screen.query("#masthead"):
             return
         self.ollama.poll()
+        for kind,value in self.tool_gateway.poll():
+            if kind=="catalog":self.filter_ruflo_tools()
+            elif kind=="review":
+                request=value['requests'][0]
+                body=f"Execute {request['tool']} inside the reviewed project boundary? Inspect the arguments and schema shown behind this dialog. This can write files, spawn commands and use approved network access. No managed provider keys are forwarded. Errors/timeouts do NOT roll back writes. Network: {'host allowed' if value['policy']['network'] else 'blocked'}. Read-only grants: {len(value['policy']['read_only'])}.\nReview: {value['digest']}"
+                self.push_screen(ConfirmScreen("RUN UPSTREAM RUFLO TOOL",body),lambda approved,v=value:self.run_ruflo_tool(v) if approved else None)
+            elif kind=="result":self.ui('#ruflo-tool-result',TextArea).load_text(json.dumps(value,indent=2,ensure_ascii=True))
+            elif kind=="error":self.ui('#ruflo-tool-result',TextArea).load_text(str(value))
         for kind,value in self.ruflo.poll():
             if kind=="error":
                 self.pending_plan=None;self.planner.state=value['message'];self.say(value['message'])
@@ -598,6 +620,7 @@ class ForgeApp(App):
         self.planner.close()
         self.voice.close()
         self.ruflo.close()
+        self.tool_gateway.close()
         self.dispatch.pause()
 
     def refresh_engines(self):
@@ -871,6 +894,9 @@ class ForgeApp(App):
         self.ui("#key-status",Static).update(self.runtime.credentials.storage_label+"\n"+self.key_status)
         self.ui("#planner-status",Static).update(self.planner.state+f" · {len(self.dispatch.grants)} authorized tasks waiting")
         self.ui("#voice-status",Static).update(f"Voice dependencies: {'installed' if self.voice.available else 'not installed'} · prepared {self.voice.model_name or 'none'} · {self.voice.state} · {self.voice.seconds:.1f}s captured")
+        self.ui("#ruflo-tool-status",Static).update(self.tool_gateway.state)
+        self.ui("#setup-ruflo-tools",Button).disabled=self.tool_gateway.busy
+        self.ui("#setup-ruflo-tool-review",Button).disabled=self.tool_gateway.busy or not self.tool_gateway.catalog
         self.ui("#setup-ruflo-connect",Button).disabled=self.ruflo.enabled
         self.ui("#setup-ruflo-sync",Button).disabled=not self.ruflo.connected or self.ruflo.busy
         self.ui("#setup-ruflo-close",Button).disabled=not self.ruflo.enabled
@@ -889,6 +915,14 @@ class ForgeApp(App):
             policy=self.runtime.sandbox.validate(dict(enabled=self.ui("#sandbox-enabled",Select).value,network=self.ui("#sandbox-network",Select).value,read_only=[v.strip() for v in self.ui("#sandbox-grants",TextArea).text.splitlines() if v.strip()]))
             body=f"Apply permissions to new sessions only? Existing sessions are unchanged; dispatch grants will be cleared. Mode: {'ENFORCE' if policy['enabled'] else 'OFF / full host permissions'}. Network: {'not restricted while mode is OFF' if not policy['enabled'] else 'host network allowed' if policy['network'] else 'blocked'}. Project writable: {self.runtime.store.project}. References read-only:\n"+"\n".join(policy['read_only'])
             self.push_screen(ConfirmScreen("REVIEW FOLDER PERMISSIONS",body),lambda approved:self.save_permissions(policy) if approved else None)
+        elif action=="setup-ruflo-tools":
+            if not self.runtime.sandbox.policy['enabled']:raise ValueError("Enable and review project folder enforcement first; broad tools never run unrestricted")
+            self.push_screen(ConfirmScreen("DISCOVER ISOLATED RUFLO TOOLS","Start the installed pinned upstream MCP server inside project isolation to read its catalog? Upstream initialization may create project state and use approved networking. No tool call or managed provider key is authorized by discovery."),lambda approved:self.start_ruflo_gateway('catalog') if approved else None)
+        elif action=="setup-ruflo-tool-review":
+            name=self.ui('#ruflo-tool-name',Select).value
+            if name is Select.BLANK:raise ValueError("Choose an advertised tool")
+            arguments=json.loads(self.ui('#ruflo-tool-arguments',TextArea).text)
+            self.start_ruflo_gateway('review',[{'tool':str(name),'arguments':arguments}])
         elif action=="setup-ruflo-connect":
             self.push_screen(ConfirmScreen("CONNECT PINNED RUFLO", "Start installed Ruflo 3.56.9 MCP as trusted host-side software? It can download local embedding weights and index up to 500 project memories on request. No provider keys are passed; no paid model or agent is launched. This does NOT sandbox the Ruflo service itself."),lambda approved:self.connect_ruflo() if approved else None)
         elif action=="setup-ruflo-sync":self.ruflo.request("sync")
@@ -952,8 +986,32 @@ class ForgeApp(App):
 
     def save_permissions(self,policy):
         try:
+            if self.tool_gateway.busy:raise ValueError("Wait for the current tool operation before changing permissions")
+            if os.name=="nt" and any(session.status=='running' for session in self.runtime.sessions.values()):raise ValueError("Stop existing native sessions before changing Windows permissions")
             self.runtime.sandbox.save(policy);self.dispatch.pause();self.refresh_setup()
         except Exception as error:self.error(error)
+
+    def start_ruflo_gateway(self,kind,requests=None,approval=None):
+        try:self.tool_gateway.start(kind,requests,approval)
+        except Exception as error:self.error(error)
+
+    def run_ruflo_tool(self,review):
+        self.start_ruflo_gateway('run',review['requests'],review['digest'])
+
+    def filter_ruflo_tools(self):
+        query=self.ui('#ruflo-tool-filter',Input).value.casefold()
+        options=[(name,name) for name in sorted(self.tool_gateway.catalog) if query in name.casefold()]
+        self.ui('#ruflo-tool-name',Select).set_options(options)
+
+    @on(Input.Changed,'#ruflo-tool-filter')
+    def ruflo_tool_filter(self,event):
+        if getattr(self,'workspace_screen',None):self.filter_ruflo_tools()
+
+    @on(Select.Changed,'#ruflo-tool-name')
+    def ruflo_tool_selection(self,event):
+        if event.value is not Select.BLANK:
+            tool=self.tool_gateway.catalog.get(str(event.value))
+            if tool:self.ui('#ruflo-tool-schema',TextArea).load_text(json.dumps(tool,indent=2,ensure_ascii=True))
 
     def connect_ruflo(self):
         try:self.ruflo.enable()
@@ -1033,11 +1091,12 @@ class ForgeApp(App):
         name, _, rest = command.partition(" ")
         if name=="/ruflo":
             operation,_,query=rest.partition(" ")
-            if operation=="search":self.ruflo.request("search",query)
+            if operation=="tools":self.action_tab("setup");self.setup_action("setup-ruflo-tools")
+            elif operation=="search":self.ruflo.request("search",query)
             elif operation=="sync":self.ruflo.request("sync")
             elif operation=="off":self.ruflo.close();self.pending_plan=None
             elif operation=="connect":self.setup_action("setup-ruflo-connect")
-            else:raise ValueError("/ruflo connect|sync|search QUERY|off")
+            else:raise ValueError("/ruflo connect|sync|search QUERY|tools|off")
         elif name=="/sandbox":
             self.action_tab('setup');self.ui('#setup-scroll').scroll_to_widget(self.ui('#sandbox-enabled'))
         elif name=="/setup":self.action_tab("setup")

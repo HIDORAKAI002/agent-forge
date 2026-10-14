@@ -223,3 +223,54 @@ async def cli(project, operation, requests_path=None, approval=None):
         text = json.dumps(result, indent=2, ensure_ascii=True, allow_nan=False) + '\n'
         print(text, end='')
         return 1 if operation == 'run' and approval and any(row['failed'] for row in result['results']) else 0
+
+
+class ToolGateway:
+    """Non-blocking UI controller; schemas/results are data, never dispatch authority."""
+    def __init__(self, project):
+        import queue
+        self.project=Path(project);self.catalog={};self.events=queue.Queue();self.busy=False
+        self.state='Catalog not loaded; reviewed folder enforcement is required'
+        self.closed=False;self.loop=None;self.task=None;self.thread=None
+
+    def start(self, kind, requests=None, approval=None):
+        if self.closed:raise ValueError('Tool gateway is closed')
+        if self.busy:raise ValueError('A Ruflo tool operation is already running')
+        if kind not in ('catalog','review','run'):raise ValueError('Unsupported gateway operation')
+        snapshot=validate_requests(requests) if kind!='catalog' else None
+        self.busy=True;self.state='Starting isolated Ruflo '+kind
+        import threading
+        async def work():
+            self.loop=asyncio.get_running_loop();self.task=asyncio.current_task()
+            try:
+                async with RufloToolSession(self.project).connect() as connection:
+                    if kind=='catalog':
+                        self.catalog=connection.catalog
+                        event=('catalog',self.catalog);self.state=f'{len(self.catalog)} advertised tools; not all backends certified'
+                    elif kind=='review':
+                        frozen,digest=connection.prepare(snapshot)
+                        event=('review',{'requests':frozen,'digest':digest,'policy':connection.policy})
+                        self.state='Review ready; no upstream tool called'
+                    else:
+                        results=await connection.execute(snapshot,approval)
+                        event=('result',results)
+                        self.state='Upstream returned an error; no rollback' if any(r['failed'] for r in results) else 'Result ready; inspect upstream output'
+                # Do not offer approval while the preview's native context still holds grants.
+            except BaseException:
+                self.state='Gateway failed or cancelled; no unrestricted fallback or rollback claimed'
+                event=('error',self.state)
+            finally:self.busy=False
+            if not self.closed:self.events.put(event)
+        self.thread=threading.Thread(target=lambda:asyncio.run(work()),daemon=True,name='forge-ruflo-tools');self.thread.start()
+
+    def poll(self):
+        result=[]
+        while not self.events.empty():result.append(self.events.get_nowait())
+        return result
+
+    def close(self):
+        self.closed=True
+        if self.loop and self.task and self.loop.is_running():
+            try:self.loop.call_soon_threadsafe(self.task.cancel)
+            except RuntimeError:pass
+        if self.thread:self.thread.join(3)

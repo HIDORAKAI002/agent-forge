@@ -20,14 +20,14 @@ def setup(tmp_path,monkeypatch):
 def test_native_stdio_filesystem_and_cleanup(tmp_path,monkeypatch):
     import win32security as S
     p,r,d,s=setup(tmp_path,monkeypatch)
-    before=S.ConvertSecurityDescriptorToStringSecurityDescriptor(S.GetNamedSecurityInfo(str(p),S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|0x10),1,S.DACL_SECURITY_INFORMATION|0x10)
+    before=S.ConvertSecurityDescriptorToStringSecurityDescriptor(S.GetNamedSecurityInfo(str(p),S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|0x10),1,S.DACL_SECURITY_INFORMATION|S.SACL_SECURITY_INFORMATION)
     code=f'echo PROJECT_OK>"{p / "written.txt"}" & type "{r / "read.txt"}" & type "{d / "secret.txt"}" & echo ESCAPE>"{d / "outside.txt"}" & echo ESCAPE>"{r / "blocked.txt"}" & echo NATIVE_BOUNDARY_DONE'
     argv,env=s.wrap([os.environ['COMSPEC'],'/d','/c',code],p,dict(os.environ,OTHER_API_KEY='FAKE_NOT_INHERITED'))
     result=subprocess.run(argv,cwd=p,env=env,capture_output=True,text=True,timeout=90)
     assert result.returncode==0,(result.stdout,result.stderr)
     assert 'APPROVED' in result.stdout and 'HIDDEN' not in result.stdout
     assert (p/'written.txt').exists() and not (d/'outside.txt').exists() and not (r/'blocked.txt').exists()
-    after=S.ConvertSecurityDescriptorToStringSecurityDescriptor(S.GetNamedSecurityInfo(str(p),S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|0x10),1,S.DACL_SECURITY_INFORMATION|0x10)
+    after=S.ConvertSecurityDescriptorToStringSecurityDescriptor(S.GetNamedSecurityInfo(str(p),S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|0x10),1,S.DACL_SECURITY_INFORMATION|S.SACL_SECURITY_INFORMATION)
     assert before==after,(before,after)
     assert not list((tmp_path/'trusted-config/windows-boundary').glob('AgentForge.*.json'))
 

@@ -119,3 +119,58 @@ def test_fixed_runtime_flags_survive_environment_filtering(tmp_path,monkeypatch)
     argv,env=connection.wrap_runtime(['ruflo'],{'DO_NOT_TRACK':'0','OTHER_API_KEY':'FAKE'})
     assert env['RUFLO_AUTO_UPDATE']=='false' and env['CLAUDE_FLOW_AUTO_UPDATE']=='false'
     assert env['DO_NOT_TRACK']=='1' and 'OTHER_API_KEY' not in env
+
+async def test_ui_tool_discovery_and_execution_require_review(tmp_path,monkeypatch):
+    from forge.tui import ForgeApp
+    from textual.widgets import Select,TextArea
+    project=tmp_path/'project';project.mkdir();app=ForgeApp(project)
+    calls=[]
+    monkeypatch.setattr(app.tool_gateway,'start',lambda *a,**k:calls.append((a,k)))
+    try:
+        async with app.run_test(size=(150,50)) as pilot:
+            await pilot.pause()
+            with pytest.raises(ValueError,match='enforcement first'):app.setup_action('setup-ruflo-tools')
+            app.runtime.sandbox.policy['enabled']=True
+            app.setup_action('setup-ruflo-tools');await pilot.pause();await pilot.press('n');await pilot.pause();assert calls==[]
+            app.tool_gateway.catalog=CATALOG;app.filter_ruflo_tools()
+            app.ui('#ruflo-tool-name',Select).value='example';await pilot.pause()
+            assert 'inputSchema' in app.ui('#ruflo-tool-schema',TextArea).text
+            review={'requests':[{'tool':'example','arguments':{'value':'ok'}}],'digest':'f'*64,'policy':app.runtime.sandbox.policy}
+            app.tool_gateway.events.put(('review',review));app.pump();await pilot.pause();await pilot.press('n');await pilot.pause();assert calls==[]
+            app.tool_gateway.events.put(('review',review));app.pump();await pilot.pause();await pilot.press('y');await pilot.pause()
+            assert calls[0][0]==('run',review['requests'],review['digest'])
+    finally:
+        app.tool_gateway.close();app.ruflo.close();app.ollama.close();app.voice.close();app.planner.close();app.runtime.close()
+
+async def test_actual_ruflo_ui_gateway(tmp_path,monkeypatch):
+    if os.environ.get('FORGE_RUFLO_FULL_TESTS')!='1':pytest.skip('Actual isolated Ruflo UI acceptance enabled in dedicated CI')
+    from forge.tui import ForgeApp
+    from textual.widgets import Select,TextArea
+    project=tmp_path/'project';project.mkdir();monkeypatch.setenv('FORGE_CONFIG_HOME',str(tmp_path/'trusted'))
+    app=ForgeApp(project)
+    try:
+        grants=[]
+        for p in (Path(os.environ['FORGE_RUFLO_BIN']).resolve().parents[3],Path(shutil.which('node')).resolve().parent.parent):
+            if not p.is_relative_to(Path('/usr')) and p!=Path('/') and str(p) not in grants:grants.append(str(p))
+        app.runtime.sandbox.save({'enabled':True,'network':False,'read_only':grants})
+        async with app.run_test(size=(150,50)) as pilot:
+            await pilot.pause();app.setup_action('setup-ruflo-tools');await pilot.pause();await pilot.press('y')
+            for _ in range(600):
+                await pilot.pause(.05)
+                if not app.tool_gateway.busy and app.tool_gateway.catalog:break
+            assert len(app.tool_gateway.catalog)>300,app.tool_gateway.state
+            app.pump();await pilot.pause()
+            app.ui('#ruflo-tool-name',Select).value='memory_stats';app.ui('#ruflo-tool-arguments',TextArea).load_text('{}');await pilot.pause()
+            app.setup_action('setup-ruflo-tool-review')
+            for _ in range(600):
+                await pilot.pause(.05)
+                if app.screen is not app.workspace_screen:break
+            assert app.screen is not app.workspace_screen,app.tool_gateway.state
+            await pilot.press('y')
+            for _ in range(600):
+                await pilot.pause(.05)
+                if app.ui('#ruflo-tool-result',TextArea).text:break
+            result=json.loads(app.ui('#ruflo-tool-result',TextArea).text)
+            assert result[0]['tool']=='memory_stats' and result[0]['failed'] is False
+    finally:
+        app.tool_gateway.close();app.ruflo.close();app.ollama.close();app.voice.close();app.planner.close();app.runtime.close()

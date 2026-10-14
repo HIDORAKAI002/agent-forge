@@ -83,6 +83,9 @@ class DispatchBatch:
             profile=runtime.profiles.get(engine)
             if task['engine']!=engine or not profile or profile.task_argv!=argv:
                 self.errors.append('Dispatch revoked: engine or command changed');self.grants.pop(identifier,None);continue
+            import os
+            native_serial=os.name=='nt' and getattr(runtime,'sandbox',None) and runtime.sandbox.policy['enabled']
+            if native_serial and any(s.status=='running' for s in runtime.sessions.values()):break
             if sum(s.status=='running' and bool(s.task_id) for s in runtime.sessions.values())>=2:break
             if any(runtime.store.task(d)['status']!='done' for d in task['dependencies']):continue
             self.grants.pop(identifier,None)
