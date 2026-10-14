@@ -1,6 +1,7 @@
 """Exercise the actual forge command inside an outer PTY, not just Pilot events."""
 import sys
 import time
+import shlex
 from forge.terminal import Session
 from forge.store import Store
 
@@ -15,7 +16,7 @@ def wait(session, predicate):
 
 
 def test_actual_forge_command_receives_terminal_bytes(project):
-    outer = Session([sys.executable, "-m", "forge", "--project", str(project)], str(project), "forge", rows=50, cols=160)
+    outer = Session([sys.executable, "-I", "-m", "forge", "--project", str(project)], str(project), "forge", rows=50, cols=160)
     try:
         wait(outer, lambda: "AGENT / FORGE" in "\n".join(outer.screen.display))
         outer.write("/remember fact REAL_TUI_BYTE_INPUT\r")
@@ -25,8 +26,9 @@ def test_actual_forge_command_receives_terminal_bytes(project):
         finally:verification.close()
         outer.write("/launch shell\r")
         wait(outer, lambda: "Embedded PTY / native input" in "\n".join(outer.screen.display))
-        outer.write("printf 'RAW_NESTED_SHELL_OK\\n'\r")
-        wait(outer, lambda: "RAW_NESTED_SHELL_OK" in "\n".join(outer.screen.display))
+        marker=project/'real-nested-shell-result.txt'
+        outer.write("printf 'RAW_NESTED_SHELL_OK\\n'; printf 'executed' > "+shlex.quote(str(marker))+"\r")
+        wait(outer, lambda: marker.exists() and marker.read_text()=='executed' and "RAW_NESTED_SHELL_OK" in "\n".join(outer.screen.display))
         time.sleep(0.15)
         outer.write("\x00")  # actual Ctrl+Space byte, not a synthetic Pilot key
         time.sleep(0.15)
