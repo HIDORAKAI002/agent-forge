@@ -11,7 +11,7 @@ def wait(session, predicate):
         session.drain()
         if predicate(): return
         time.sleep(0.025)
-    raise AssertionError("Real CLI/PTY interaction timed out")
+    raise AssertionError(f"Real CLI/PTY interaction timed out: status={session.status} exit={session.exit_code} screen={chr(10).join(session.screen.display)[-1400:]!r}")
 
 
 def test_actual_forge_command_receives_terminal_bytes(project):
@@ -19,7 +19,10 @@ def test_actual_forge_command_receives_terminal_bytes(project):
     try:
         wait(outer, lambda: "AGENT / FORGE" in "\n".join(outer.screen.display))
         outer.write("/remember fact REAL_TUI_BYTE_INPUT\r")
-        wait(outer, lambda: "REAL_TUI_BYTE_INPUT" in "\n".join(outer.screen.display))
+        # Seeing typed characters is not proof that Input.Submitted completed.
+        verification = Store(project)
+        try:wait(outer, lambda: bool(verification.memories("REAL_TUI_BYTE_INPUT")))
+        finally:verification.close()
         outer.write("/launch shell\r")
         wait(outer, lambda: "Embedded PTY / native input" in "\n".join(outer.screen.display))
         outer.write("printf 'RAW_NESTED_SHELL_OK\\n'\r")

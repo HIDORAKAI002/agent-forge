@@ -151,7 +151,7 @@ class Boundary:
                         raise ValueError('Recorded native child is still alive; recovery refused')
             except psutil.NoSuchProcess:pass
         sid=S.ConvertStringSidToSid(record['sid']);project=Path(record['project'])
-        original={item['identity']:item for item in record['objects'] if item['project']}
+        original={item['identity']:item for item in record['objects']}
         # Only original approved roots; no walk through junctions created by a child.
         items={item['path']:item['project'] for item in record['objects']}
         if project.exists():
@@ -167,14 +167,35 @@ class Boundary:
             unlinked(p)
             with self.handle(p) as h:
                 identity=self.identity(h);self.revoke(h,sid)
+                saved=original.get(identity)
                 if is_project:
-                    saved=original.get(identity)
                     self.set_label(h,saved['label'] if saved else 'S:(ML;;NW;;;ME)')
-                    if saved and saved.get('dacl'):
-                        # Original security is restored after all processes stop.
-                        # Concurrent host-side ACL editing is unsupported.
-                        sd=S.ConvertStringSecurityDescriptorToSecurityDescriptor(saved['dacl'],1)
-                        S.SetKernelObjectSecurity(h,S.DACL_SECURITY_INFORMATION,sd)
+                if saved and saved.get('dacl'):
+                    # Original security is restored after all processes stop.
+                    # Concurrent host-side ACL editing is unsupported.
+                    original_dacl=saved['dacl']
+                    # The saved ACEs already describe the intended object.
+                    # Mark that inheritance has been computed; otherwise
+                    # Windows may replace saved explicit ACEs with the
+                    # parent's matching inherited ACEs during restoration.
+                    split=original_dacl.find('(')
+                    header=original_dacl if split<0 else original_dacl[:split]
+                    if 'AI' not in header:
+                        original_dacl=original_dacl[:2]+'AI'+original_dacl[2:]
+                    sd=S.ConvertStringSecurityDescriptorToSecurityDescriptor(original_dacl,1)
+                    S.SetKernelObjectSecurity(h,S.DACL_SECURITY_INFORMATION,sd)
+        # Verify after all hierarchy mutations, before discarding the journal.
+        # A cleanup mismatch is a real failure, not a successful best effort.
+        for item in record['objects']:
+            p=Path(item['path'])
+            if not p.exists() or not item.get('dacl'):continue
+            with self.handle(p) as h:
+                if self.identity(h)!=item['identity']:continue
+                expected=S.ConvertStringSecurityDescriptorToSecurityDescriptor(item['dacl'],1).GetSecurityDescriptorDacl()
+                actual=S.GetSecurityInfo(h,S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION).GetSecurityDescriptorDacl()
+                entries=lambda acl:[] if acl is None else [acl.GetAce(i) for i in range(acl.GetAceCount())]
+                if entries(expected)!=entries(actual):
+                    raise ValueError('Native DACL restoration mismatch; recovery journal retained')
         if record.get('loopback'):
             import subprocess
             result=subprocess.run(['CheckNetIsolation.exe','LoopbackExempt','-d','-n='+record['name']],capture_output=True,timeout=15)

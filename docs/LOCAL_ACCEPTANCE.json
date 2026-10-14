@@ -1,0 +1,22 @@
+{
+  "kind": "local Linux kernel and pinned-Ruflo acceptance",
+  "passed": 94,
+  "failed": 0,
+  "skipped": 12,
+  "skipped_cases": [
+    "test_windows_enforcement_unavailable_dependency_fails_closed",
+    "test_native_conpty_input_resize_and_exit",
+    "test_native_job_cleanup_kills_descendant",
+    "test_windows_runtime_and_lock",
+    "test_native_tui_and_installed_launcher",
+    "test_native_stdio_filesystem_and_cleanup",
+    "test_native_git_control_readonly",
+    "test_native_isolated_conpty",
+    "test_native_reparse_and_hardlink_inputs_refused",
+    "test_native_profile_grant_creation_and_restore",
+    "test_native_broker_interruption_recovers_grants",
+    "test_native_postlaunch_junction_cannot_grant_external_access"
+  ],
+  "native_windows_evidence": false,
+  "note": "All opt-in Linux Bubblewrap and real Ruflo tests enabled. Native Windows skips are not passes. Trusted terminal brokers run in isolated Python mode."
+}
