@@ -1,32 +1,22 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "a64ea32fc16805367619176f5be7e4dba715d9b8",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38576064785",
+  "source_commit": "cb4c19431a610d0e4f3f762516102d4661fc928d",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38576920733",
   "status": "failed",
-  "tests": 42,
-  "passed": 34,
-  "failed": 4,
+  "tests": 43,
+  "passed": 37,
+  "failed": 2,
   "skipped": 4,
   "failed_cases": [
     {
       "name": "test_native_stdio_filesystem_and_cleanup",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: ('D:(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;LA)', 'D:AI(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;FA;;;LA)S:AINO_ACCESS_CONTROL')\nassert 'D:(A;OICI;FA...OICI;FA;;;LA)' == 'D:AI(A;OICII...CCESS_CONTROL'\n  \n  - D:AI(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;FA;;;LA)S:AINO_ACCESS_CONTROL\n  ?   --       --                --                --         ---------------------\n  + D:(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;LA)"
-    },
-    {
-      "name": "test_native_git_control_readonly",
-      "class": "tests.test_windows_isolation",
-      "message": "AssertionError: assert 'CORRUPT \\n' == 'CANONICAL'\n  \n  - CANONICAL\n  + CORRUPT"
+      "message": "AssertionError: ([((0, 3), 2032127, <PySID object at 0x00000231D5753270>), ((0, 3), 2032127, <PySID object at 0x00000231D5752FF0>), ((...), ((0, 19), 2032127, <PySID object at 0x00000231D5753150>), ((0, 19), 2032127, <PySID object at 0x00000231D5752DD0>)])\nassert [((0, 3), 203...231D57532D0>)] == [((0, 19), 20...231D5752DD0>)]\n  \n  At index 0 diff: ((0, 3), 2032127, <PySID object at 0x00000231D5753270>) != ((0, 19), 2032127, <PySID object at 0x00000231D5753070>)\n  \n  Full diff:\n    [\n        (\n            (\n                0,\n  -             19,\n  ?             ^^\n  +             3,\n  ?             ^\n            ),\n            2032127,\n  -         <PySID object at 0x00000231D5753070>,\n  ?                                         ^\n  +         <PySID object at 0x00000231D5753270>,\n  ?                                         ^\n        ),\n        (\n            (\n                0,\n  -             19,\n  ?             ^^\n  +             3,\n  ?             ^\n            ),\n            2032127,\n  -         <PySID object at 0x00000231D5753150>,\n  ?                                        ^^^\n  +         <PySID object at 0x00000231D5752FF0>,\n  ?                                        ^^^\n    "
     },
     {
       "name": "test_native_isolated_conpty",
       "class": "tests.test_windows_isolation",
       "message": "AssertionError: Native isolated terminal did not render: status=running exit=None broker=None screen='                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n"
-    },
-    {
-      "name": "test_ui_tool_discovery_and_execution_require_review",
-      "class": "tests.test_ruflo_tools",
-      "message": "AssertionError: assert 'inputSchema' in '{}'\n +  where '{}' = TextArea(id='ruflo-tool-schema', classes='tool-json').text\n +    where TextArea(id='ruflo-tool-schema', classes='tool-json') = ui('#ruflo-tool-schema', <class 'textual.widgets._text_area.TextArea'>)\n +      where ui = ForgeApp(title='AGENT FORGE', classes={'-theme-forge-nebula', '-dark-mode'}, pseudo_classes={'focus', 'dark'}).ui"
     }
   ]
 }
