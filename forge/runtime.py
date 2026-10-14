@@ -50,7 +50,7 @@ class Runtime:
         working=cwd or self.store.project
         argv,env=self.sandbox.wrap(self.profiles[engine].command(prompt),working,env,self.credentials.environment(engine))
         session = Session(argv, str(working), engine, task_id=task_id, env=env)
-        session.isolation="ENFORCED / Bubblewrap" if self.sandbox.policy["enabled"] else "OFF / host permissions"
+        session.isolation=("ENFORCED / Windows LPAC (serialized)" if os.name=="nt" else "ENFORCED / Bubblewrap") if self.sandbox.policy["enabled"] else "OFF / host permissions"
         self.sessions[session.id] = session
         return session
 

@@ -29,7 +29,7 @@ def job_for(pid):
 def main():
     from winpty import PtyProcess,Backend
     from .platform_support import windows_command
-    child=None;job=None;kernel=None;exit_code=125
+    child=None;job=None;kernel=None;boundary=None;native=False;exit_code=125
     controls=queue.Queue();outputs=queue.Queue(maxsize=2000)
     def control_reader():
         try:
@@ -45,8 +45,20 @@ def main():
     try:
         config=json.loads(sys.stdin.buffer.readline())
         argv,env=windows_command(config['argv'],config['env'])
-        child=PtyProcess.spawn(argv,cwd=config['cwd'],env=env,dimensions=(config['rows'],config['cols']),backend=str(Backend.ConPTY))
-        try:kernel,job=job_for(child.pid)
+        from .windows_isolation import SPEC
+        if SPEC in env:
+            from .windows_isolation import Boundary,NativeProcess
+            spec=json.loads(env.pop(SPEC));native=True
+            # Sandbox.wrap uses a stdio wrapper for ordinary subprocess clients;
+            # this broker can create a real isolated ConPTY directly instead.
+            if argv[:4]!=[sys.executable,'-I','-m','forge.windows_isolation']:raise ValueError('Invalid native boundary launcher')
+            argv,env=windows_command(argv[4:],env)
+            boundary=Boundary(spec['project'],spec['policy'],spec['protect_git']).open()
+            child=NativeProcess(argv,config['cwd'],env,boundary,pty=True,rows=config['rows'],cols=config['cols'])
+        else:
+            child=PtyProcess.spawn(argv,cwd=config['cwd'],env=env,dimensions=(config['rows'],config['cols']),backend=str(Backend.ConPTY))
+        try:
+            if not native:kernel,job=job_for(child.pid)
         except OSError:
             if child.isalive():raise
         print(json.dumps({'ready':True,'pid':child.pid,'backend':'ConPTY'}),file=sys.stderr,flush=True)
@@ -59,7 +71,8 @@ def main():
                 elif message['kind']=='resize' and not stopping:child.setwinsize(message['rows'],message['cols'])
                 elif message['kind']=='stop':
                     stopping=True
-                    if job:kernel.CloseHandle(job);job=None
+                    if native:child.close()
+                    elif job:kernel.CloseHandle(job);job=None
             except queue.Empty:pass
             try:text=outputs.get(timeout=.03)
             except queue.Empty:
@@ -74,6 +87,11 @@ def main():
         print(json.dumps({'error':str(error)}),file=sys.stderr,flush=True);exit_code=125
     finally:
         if job:kernel.CloseHandle(job)
+        if native and child:child.close()
+        if boundary:
+            try:boundary.close()
+            except BaseException as error:
+                print(json.dumps({'error':'Native permission cleanup failed; recovery journal retained'}),file=sys.stderr,flush=True);exit_code=125
         # The isolated broker owns all ConPTY handles. Let the OS reclaim them;
         # interpreter finalizers race pywinpty's native reader on child exit.
         # Job closure above kills any surviving descendants before termination.

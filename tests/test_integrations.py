@@ -193,13 +193,11 @@ def test_trusted_broker_ignores_project_python_injection(tmp_path,monkeypatch):
         assert not marker.exists()
     finally:s.stop()
 
-def test_windows_enforcement_never_falls_back_to_host(tmp_path,monkeypatch):
+def test_windows_enforcement_unavailable_dependency_fails_closed(tmp_path,monkeypatch):
     if os.name!='nt':pytest.skip('Native Windows fail-closed gate')
     project=tmp_path/'project';project.mkdir();s=Sandbox(project)
-    with pytest.raises(ValueError,match='Windows sandbox unavailable'):
-        s.save({'enabled':True,'read_only':[],'network':False})
+    monkeypatch.setattr('forge.windows_isolation.supported',lambda:(_ for _ in ()).throw(ValueError('dependency unavailable')))
+    with pytest.raises(ValueError,match='dependency unavailable'):s.save({'enabled':True,'read_only':[],'network':False})
     assert not s.policy['enabled']
-    # A policy copied from a Linux install must not bypass the launch-time gate.
     s.policy={'enabled':True,'read_only':[],'network':False}
-    with pytest.raises(ValueError,match='refusing to launch'):
-        s.wrap(['cmd.exe'],project,dict(os.environ))
+    with pytest.raises(ValueError,match='dependency unavailable'):s.wrap(['cmd.exe'],project,dict(os.environ))

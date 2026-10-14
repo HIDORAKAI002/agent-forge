@@ -32,8 +32,13 @@ class Sandbox:
         policy=self.validate(data)
         if policy['enabled']:
             if self.path.is_relative_to(self.project):raise ValueError('Permission storage must be outside writable project')
-            if not sys.platform.startswith('linux'):raise ValueError('Enforced sandbox currently requires Linux/WSL Bubblewrap; native Windows sandbox unavailable')
-            if not shutil.which('bwrap'):raise ValueError('Install Bubblewrap before enabling isolation; no unsandboxed fallback')
+            if os.name=='nt':
+                from .windows_isolation import supported,unlinked,paths
+                supported();unlinked(self.project)
+                for root in [self.project,*map(Path,policy['read_only'])]:paths(root)
+            elif sys.platform.startswith('linux'):
+                if not shutil.which('bwrap'):raise ValueError('Install Bubblewrap before enabling isolation; no unsandboxed fallback')
+            else:raise ValueError('Enforced isolation is unavailable on this platform')
             if Path(__file__).resolve().is_relative_to(self.project):raise ValueError('Install Forge outside the writable project before enabling isolation')
         tmp=self.path.with_suffix('.tmp')
         if tmp.is_symlink():raise ValueError('Refusing symlinked permission temporary file')
@@ -42,6 +47,18 @@ class Sandbox:
         tmp.replace(self.path);self.policy=policy
     def wrap(self,argv,cwd,environment,credentials=None,*,protect_control=True):
         if not self.policy['enabled']:return argv,environment
+        if os.name=='nt':
+            from .windows_isolation import SPEC,supported,unlinked
+            supported()
+            if Path(__file__).resolve().is_relative_to(self.project) or self.path.is_relative_to(self.project):raise ValueError('Native runtime/policy must stay outside writable project')
+            current=unlinked(Path(cwd).resolve(strict=True))
+            if not current.is_relative_to(self.project):raise ValueError('Native working directory must stay in project')
+            clean={k:environment[k] for k in ('PATH','SYSTEMROOT','WINDIR','COMSPEC','PATHEXT','LANG','LC_ALL','TERM','COLORTERM') if k in environment}
+            clean.update(credentials or {})
+            if self.policy['network'] and 'OLLAMA_API_BASE' in environment:clean['OLLAMA_API_BASE']=environment['OLLAMA_API_BASE']
+            clean.update(FORGE_PROJECT=str(self.project),GIT_OPTIONAL_LOCKS='0')
+            clean[SPEC]=json.dumps({'project':str(self.project),'policy':self.policy,'protect_git':protect_control})
+            return [sys.executable,'-I','-m','forge.windows_isolation',*argv],clean
         if not sys.platform.startswith('linux') or not (bwrap:=shutil.which('bwrap')):raise ValueError('Sandbox unavailable; refusing to launch without enforcement')
         if Path(__file__).resolve().is_relative_to(self.project):raise ValueError('Forge installation overlaps writable project')
         if self.path.is_relative_to(self.project):raise ValueError('Sandbox permission storage overlaps writable project')

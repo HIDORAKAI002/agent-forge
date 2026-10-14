@@ -51,7 +51,7 @@ jobs:
           & ./scripts/install.ps1
           if (-not (Test-Path "$env:FORGE_BIN_ROOT/agent-command.cmd")) { throw 'Launcher missing' }
           "FORGE_WINDOWS_INSTALL_TEST_BIN=$env:FORGE_BIN_ROOT" >> $env:GITHUB_ENV
-      - run: python -m pytest -q tests/test_windows.py tests/test_store.py tests/test_integrations.py tests/test_ruflo_tools.py -k 'not actual_sandbox and not symlinks' --junitxml=junit.xml
+      - run: python -m pytest -q tests/test_windows.py tests/test_windows_isolation.py tests/test_store.py tests/test_integrations.py tests/test_ruflo_tools.py -k 'not actual_sandbox and not symlinks' --junitxml=junit.xml
       - if: always()
         run: python .github/scripts/ci_report.py --suite windows-${{ matrix.python }}
       - if: always() && github.event_name == 'push'
