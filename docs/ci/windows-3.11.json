@@ -1,11 +1,27 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "fdc9918dcb35c184586baef6ce59b6cd8b388dd7",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38570006058",
-  "status": "passed",
-  "tests": 34,
-  "passed": 31,
-  "failed": 0,
+  "source_commit": "23e2a2f4d586e02f530a05f55273ea8e79dda7f8",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38572990172",
+  "status": "failed",
+  "tests": 38,
+  "passed": 32,
+  "failed": 3,
   "skipped": 3,
-  "failed_cases": []
+  "failed_cases": [
+    {
+      "name": "test_native_stdio_filesystem_and_cleanup",
+      "class": "tests.test_windows_isolation",
+      "message": "AssertionError: ('', 'Native boundary failed; no unrestricted fallback. Inspect runtime grants and recovery journal.\n  ')\nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso..., stdout='', stderr='Native boundary failed; no unrestricted fallback. Inspect runtime grants and recovery journal.\\n').returncode"
+    },
+    {
+      "name": "test_native_git_control_readonly",
+      "class": "tests.test_windows_isolation",
+      "message": "AssertionError: Native boundary failed; no unrestricted fallback. Inspect runtime grants and recovery journal.\n  \nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso..., stdout='', stderr='Native boundary failed; no unrestricted fallback. Inspect runtime grants and recovery journal.\\n').returncode"
+    },
+    {
+      "name": "test_native_isolated_conpty",
+      "class": "tests.test_windows_isolation",
+      "message": "ValueError: 'PyHANDLE' object does not support the context manager protocol"
+    }
+  ]
 }
