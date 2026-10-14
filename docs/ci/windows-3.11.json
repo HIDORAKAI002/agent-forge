@@ -1,27 +1,27 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "d95529eb481f09f72201268e0ef2e8eaa44bcde7",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38573186167",
+  "source_commit": "5121f2d76775e4e2e8ad90d7c88f1bf2aaad5ac5",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38573888603",
   "status": "failed",
-  "tests": 38,
-  "passed": 32,
+  "tests": 40,
+  "passed": 33,
   "failed": 3,
-  "skipped": 3,
+  "skipped": 4,
   "failed_cases": [
     {
       "name": "test_native_stdio_filesystem_and_cleanup",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: ('', 'Native boundary failed; no unrestricted fallback. Inspect runtime grants and recovery journal.\n  ')\nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso..., stdout='', stderr='Native boundary failed; no unrestricted fallback. Inspect runtime grants and recovery journal.\\n').returncode"
+      "message": "AssertionError: ('', 'Native boundary failed during grant setup: RuntimeError, OS code None; no unrestricted fallback.\n  ')\nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso...stdout='', stderr='Native boundary failed during grant setup: RuntimeError, OS code None; no unrestricted fallback.\\n').returncode"
     },
     {
       "name": "test_native_git_control_readonly",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: Native boundary failed; no unrestricted fallback. Inspect runtime grants and recovery journal.\n  \nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso..., stdout='', stderr='Native boundary failed; no unrestricted fallback. Inspect runtime grants and recovery journal.\\n').returncode"
+      "message": "AssertionError: Native boundary failed during grant setup: RuntimeError, OS code None; no unrestricted fallback.\n  \nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso...stdout='', stderr='Native boundary failed during grant setup: RuntimeError, OS code None; no unrestricted fallback.\\n').returncode"
     },
     {
       "name": "test_native_isolated_conpty",
       "class": "tests.test_windows_isolation",
-      "message": "ValueError: 'PyHANDLE' object does not support the context manager protocol"
+      "message": "ValueError: [WinError 203] The system could not find the environment option that was entered."
     }
   ]
 }
