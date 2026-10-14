@@ -1,7 +1,7 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "0685d3331492d17750341ab3eba70fe7ffff8be3",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38654903498",
+  "source_commit": "408395fbf3e1820967d847904a595ea8fc0d0938",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38655729930",
   "status": "failed",
   "tests": 55,
   "passed": 44,
@@ -11,7 +11,7 @@
     {
       "name": "test_native_direct_conpty_output",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: direct exit=0 alive=False output='\\x1b[?9001h\\x1b[?1004h'; cleanup: ValueError: Native DACL restoration mismatch; recovery journal retained\nassert not [\"direct exit=0 alive=False output='\\\\x1b[?9001h\\\\x1b[?1004h'\", 'cleanup: ValueError: Native DACL restoration mismatch; recovery journal retained']"
+      "message": "AssertionError: direct exit=0 alive=False output='\\x1b[?9001h\\x1b[?1004h'; cleanup: ValueError: Native project DACL restoration mismatch (ACE flags [3, 3, 3] -> [19, 19, 19]); recovery journal retained\nassert not [\"direct exit=0 alive=False output='\\\\x1b[?9001h\\\\x1b[?1004h'\", 'cleanup: ValueError: Native project DACL restoration mismatch (ACE flags [3, 3, 3] -> [19, 19, 19]); recovery journal retained']"
     },
     {
       "name": "test_native_stdio_filesystem_and_cleanup",
@@ -31,7 +31,7 @@
     {
       "name": "test_native_profile_grant_creation_and_restore",
       "class": "tests.test_windows_isolation",
-      "message": "ValueError: Native DACL restoration mismatch; recovery journal retained"
+      "message": "ValueError: Native project DACL restoration mismatch (ACE flags [3, 3, 3] -> [19, 19, 19]); recovery journal retained"
     }
   ]
 }
