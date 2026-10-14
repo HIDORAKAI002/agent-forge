@@ -264,7 +264,7 @@ class NativeProcess:
         size=C.c_size_t();k.InitializeProcThreadAttributeList(None,attrs,0,C.byref(size));buffer=C.create_string_buffer(size.value);si.lpAttributeList=C.cast(buffer,C.c_void_p)
         if not k.InitializeProcThreadAttributeList(si.lpAttributeList,attrs,0,C.byref(size)):raise C.WinError(C.get_last_error())
         def attribute(number,value):
-            if not k.UpdateProcThreadAttribute(si.lpAttributeList,0,number,C.byref(value),C.sizeof(value),None,None):raise C.WinError(C.get_last_error())
+            if not k.UpdateProcThreadAttribute(si.lpAttributeList,0,number,C.byref(value),C.sizeof(value),None,None):raise OSError(C.get_last_error(),f'Native process attribute {number:#x} failed')
         sidbuf=C.create_string_buffer(bytes(boundary.sid));caps=CAPS(C.cast(sidbuf,C.c_void_p),None,0,0);cap_sid_buffers=[]
         if boundary.policy['network']:
             cap_sid_buffers=[C.create_string_buffer(bytes(S.ConvertStringSidToSid(sid))) for sid in ('S-1-15-3-1','S-1-15-3-3')]
@@ -276,7 +276,7 @@ class NativeProcess:
                 if result<0:raise OSError(result,'CreatePseudoConsole failed')
                 self.pseudo=pseudo.value
                 # HPCON value is passed directly, NOT a pointer to the handle.
-                if not k.UpdateProcThreadAttribute(si.lpAttributeList,0,0x20016,C.c_void_p(self.pseudo),C.sizeof(W.HANDLE),None,None):raise C.WinError(C.get_last_error())
+                if not k.UpdateProcThreadAttribute(si.lpAttributeList,0,0x20016,C.c_void_p(self.pseudo),C.sizeof(W.HANDLE),None,None):raise OSError(C.get_last_error(),'Native pseudo-console attribute failed')
                 inherit=False
             else:
                 self.error,child_error=pipe();si.StartupInfo.dwFlags=0x100;si.StartupInfo.hStdInput=child_input;si.StartupInfo.hStdOutput=child_output;si.StartupInfo.hStdError=child_error
@@ -284,11 +284,11 @@ class NativeProcess:
                 for h in inherited:
                     if not k.SetHandleInformation(h,1,1):raise C.WinError(C.get_last_error())
                 attribute(0x20002,inherited);inherit=True
-            env=dict(env);env.pop(SPEC,None);env.pop('FORGE_WINDOWS_ISOLATION_EXPERIMENTAL',None);env.update(HOME=str(boundary.home),USERPROFILE=str(boundary.home),TEMP=str(boundary.home),TMP=str(boundary.home))
+            env=dict(env);env.pop(SPEC,None);env.pop('FORGE_WINDOWS_ISOLATION_EXPERIMENTAL',None);env.pop('FORGE_CONFIG_HOME',None);env.update(HOME=str(boundary.home),USERPROFILE=str(boundary.home),LOCALAPPDATA=str(boundary.home),APPDATA=str(boundary.home),TEMP=str(boundary.home),TMP=str(boundary.home))
             environment=C.create_unicode_buffer('\0'.join(f'{key}={value}' for key,value in sorted(env.items()))+'\0\0')
             command=C.create_unicode_buffer(subprocess.list2cmdline(argv));pi=PI()
             executable=shutil.which(argv[0],path=env.get('PATH','')) or argv[0]
-            if not k.CreateProcessW(executable,command,None,None,inherit,0x80000|0x400|0x4,environment,str(cwd),C.byref(si),C.byref(pi)):raise C.WinError(C.get_last_error())
+            if not k.CreateProcessW(executable,command,None,None,inherit,0x80000|0x400|0x4,environment,str(cwd),C.byref(si),C.byref(pi)):raise OSError(C.get_last_error(),'CreateProcessW under native LPAC failed')
             self.process=pi.hProcess;self.pid=pi.dwProcessId;self.handles.extend([pi.hProcess,pi.hThread])
             from .windows_broker import job_for
             _,self.job=job_for(self.pid)
@@ -366,7 +366,7 @@ def main():
         exit_code=child.exitstatus
         for t in threads:t.join(2)
     except BaseException as error:
-        message=f'Native boundary failed during {phase}: {type(error).__name__}, OS code {getattr(error, "winerror", getattr(error, "errno", None))}; no unrestricted fallback.\n'
+        message=f'Native boundary failed during {phase}: {type(error).__name__}, OS code {getattr(error, "winerror", getattr(error, "errno", None))}, detail {str(error)[:250]}; no unrestricted fallback.\n'
         os.write(sys.stderr.fileno(),message.encode('utf-8'))
     finally:
         if child:child.close()

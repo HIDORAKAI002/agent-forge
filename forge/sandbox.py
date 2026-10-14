@@ -53,10 +53,11 @@ class Sandbox:
             if Path(__file__).resolve().is_relative_to(self.project) or self.path.is_relative_to(self.project):raise ValueError('Native runtime/policy must stay outside writable project')
             current=unlinked(Path(cwd).resolve(strict=True))
             if not current.is_relative_to(self.project):raise ValueError('Native working directory must stay in project')
-            clean={k:environment[k] for k in ('PATH','SYSTEMROOT','WINDIR','COMSPEC','PATHEXT','LANG','LC_ALL','TERM','COLORTERM') if k in environment}
+            clean={k:environment[k] for k in ('PATH','SYSTEMROOT','WINDIR','COMSPEC','PATHEXT','USERPROFILE','LOCALAPPDATA','APPDATA','LANG','LC_ALL','TERM','COLORTERM') if k in environment}
             clean.update(credentials or {})
             if self.policy['network'] and 'OLLAMA_API_BASE' in environment:clean['OLLAMA_API_BASE']=environment['OLLAMA_API_BASE']
             clean.update(FORGE_PROJECT=str(self.project),GIT_OPTIONAL_LOCKS='0')
+            clean['FORGE_CONFIG_HOME']=str(self.path.parent.parent.resolve())
             clean['FORGE_WINDOWS_ISOLATION_EXPERIMENTAL']='1'
             clean[SPEC]=json.dumps({'project':str(self.project),'policy':self.policy,'protect_git':protect_control})
             return [sys.executable,'-I','-m','forge.windows_isolation',*argv],clean

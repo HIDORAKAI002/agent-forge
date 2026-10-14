@@ -66,3 +66,10 @@ def test_native_reparse_and_hardlink_inputs_refused(tmp_path,monkeypatch):
     result=subprocess.run(['cmd.exe','/d','/c','mklink','/J',str(p/'junction'),str(d)],capture_output=True,text=True)
     assert result.returncode==0,result.stderr
     with pytest.raises(ValueError,match='reparse'):s.save(s.policy)
+
+def test_native_profile_grant_creation_and_restore(tmp_path,monkeypatch):
+    from forge.windows_isolation import Boundary
+    p,r,d,s=setup(tmp_path,monkeypatch);boundary=Boundary(p,s.policy)
+    try:
+        boundary.open();assert boundary.sid and boundary.home.is_dir()
+    finally:boundary.close()
