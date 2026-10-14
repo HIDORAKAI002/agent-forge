@@ -1,17 +1,11 @@
 {
   "suite": "linux-3.13",
-  "source_commit": "f9bb3a3b7a5f95e47b9dd0268f0e7e3aa60add4d",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38574762314",
-  "status": "failed",
-  "tests": 103,
-  "passed": 89,
-  "failed": 1,
+  "source_commit": "a64ea32fc16805367619176f5be7e4dba715d9b8",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38576064785",
+  "status": "passed",
+  "tests": 104,
+  "passed": 91,
+  "failed": 0,
   "skipped": 13,
-  "failed_cases": [
-    {
-      "name": "test_actual_forge_command_receives_terminal_bytes",
-      "class": "tests.test_cli_pty",
-      "message": "AssertionError: Real CLI/PTY interaction timed out"
-    }
-  ]
+  "failed_cases": []
 }
