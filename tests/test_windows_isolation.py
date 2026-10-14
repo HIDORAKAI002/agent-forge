@@ -84,13 +84,16 @@ def test_native_isolated_conpty(tmp_path,monkeypatch):
     p,r,d,s=setup(tmp_path,monkeypatch);argv,env=s.wrap([os.environ['COMSPEC'],'/d'],p,dict(os.environ))
     session=Session(argv,str(p),'native-isolation',env=env,rows=30,cols=100)
     try:
-        session.write('echo REAL_ISOLATED_CONPTY\r')
+        command=f'echo REAL_ISOLATED_CONPTY>"{p / "pty-written.txt"}" & type "{r / "read.txt"}" & type "{d / "secret.txt"}" & echo ESCAPE>"{d / "pty-outside.txt"}" & echo COMPLETE'
+        session.write(command+'\r')
         end=time.monotonic()+20
         while time.monotonic()<end:
             session.drain()
-            if 'REAL_ISOLATED_CONPTY' in '\n'.join(session.screen.display):break
+            if (p/'pty-written.txt').exists() and 'APPROVED' in '\n'.join(session.screen.display):break
             time.sleep(.03)
         else:raise AssertionError(f'Native isolated terminal did not render: status={session.status} exit={session.exit_code} broker={session.process.poll()} screen={repr(chr(10).join(session.screen.display))[:700]}')
+        assert 'REAL_ISOLATED_CONPTY' in (p/'pty-written.txt').read_text()
+        assert 'HIDDEN' not in '\n'.join(session.screen.display) and not (d/'pty-outside.txt').exists()
         session.resize(35,110);session.write('exit\r')
         end=time.monotonic()+20
         while session.status=='running' and time.monotonic()<end:session.drain();time.sleep(.03)

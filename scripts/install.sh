@@ -2,7 +2,7 @@
 # User-local, dependency-isolated installer. Run from an authorized repository clone.
 set -euo pipefail
 if [[ ${OS:-} == Windows_NT ]]; then
-  echo 'Native Windows is not supported yet. Run this installer inside WSL.' >&2; exit 1
+  echo 'For native Windows, use PowerShell: ./scripts/install.ps1. This Bash installer can also run inside WSL.' >&2; exit 1
 fi
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 PYTHON=${FORGE_PYTHON:-python3}
