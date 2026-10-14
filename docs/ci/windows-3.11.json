@@ -1,10 +1,10 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "2c610cb08b2910393756ef56df1ff288e935d435",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38569841989",
+  "source_commit": "fdc9918dcb35c184586baef6ce59b6cd8b388dd7",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38570006058",
   "status": "passed",
-  "tests": 33,
-  "passed": 30,
+  "tests": 34,
+  "passed": 31,
   "failed": 0,
   "skipped": 3,
   "failed_cases": []
