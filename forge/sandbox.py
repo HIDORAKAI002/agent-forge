@@ -57,6 +57,7 @@ class Sandbox:
             clean.update(credentials or {})
             if self.policy['network'] and 'OLLAMA_API_BASE' in environment:clean['OLLAMA_API_BASE']=environment['OLLAMA_API_BASE']
             clean.update(FORGE_PROJECT=str(self.project),GIT_OPTIONAL_LOCKS='0')
+            clean['FORGE_WINDOWS_ISOLATION_EXPERIMENTAL']='1'
             clean[SPEC]=json.dumps({'project':str(self.project),'policy':self.policy,'protect_git':protect_control})
             return [sys.executable,'-I','-m','forge.windows_isolation',*argv],clean
         if not sys.platform.startswith('linux') or not (bwrap:=shutil.which('bwrap')):raise ValueError('Sandbox unavailable; refusing to launch without enforcement')

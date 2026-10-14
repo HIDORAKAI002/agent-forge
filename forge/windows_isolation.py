@@ -53,6 +53,7 @@ def supported():
 class Boundary:
     def __init__(self,project,policy,protect_git=True):
         supported();self.project=unlinked(Path(project).resolve(strict=True));self.policy=policy;self.protect_git=protect_git
+        if self.project==Path(self.project.anchor):raise ValueError('Native writable project must not be a disk root')
         if str(self.project).startswith('\\\\'):raise ValueError('UNC projects are not supported by native isolation')
         self.root=unlinked(Preferences().root/'windows-boundary');self.root.mkdir(mode=0o700,exist_ok=True)
         if self.root.is_relative_to(self.project):raise ValueError('Windows gate must be outside project')
@@ -102,12 +103,10 @@ class Boundary:
         acl=sd.GetSecurityDescriptorDacl()
         if acl is None:raise ValueError('NULL DACL grant inputs are refused')
         flags=3 if inherit else 0
-        # Explicit deny ACEs precede explicit allows; preserve all existing ACEs.
-        new=S.ACL()
-        if denied:new.AddAccessDeniedAceEx(S.ACL_REVISION_DS,flags,denied,sid)
-        for i in range(acl.GetAceCount()):new.AddAce(S.ACL_REVISION_DS,new.GetAceCount(),acl.GetAce(i))
-        new.AddAccessAllowedAceEx(S.ACL_REVISION_DS,flags,mask,sid)
-        S.SetSecurityInfo(handle,S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION,None,None,new,None)
+        # PyACL insertion automatically reallocates and canonicalizes ACE order.
+        if denied:acl.AddAccessDeniedAceEx(S.ACL_REVISION_DS,flags,denied,sid)
+        acl.AddAccessAllowedAceEx(S.ACL_REVISION_DS,flags,mask,sid)
+        S.SetSecurityInfo(handle,S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION,None,None,acl,None)
 
     @staticmethod
     def revoke(handle,sid):
@@ -232,7 +231,7 @@ class CAPS(C.Structure):_fields_=[('AppContainerSid',C.c_void_p),('Capabilities'
 class NativeProcess:
     def __init__(self,argv,cwd,env,boundary,*,pty=False,rows=24,cols=90):
         import subprocess,win32security as S
-        self.k=C.WinDLL('kernel32',use_last_error=True);self.handles=[];self.pseudo=None;self.process=None;self.job=None;self.decoder=codecs.getincrementaldecoder('utf-8')('replace')
+        self.k=C.WinDLL('kernel32',use_last_error=True);self.handles=[];self.pseudo=None;self.process=None;self.job=None;self.decoder=codecs.getincrementaldecoder('utf-8')('replace');self.closed=False;self.final_code=None
         k=self.k
         prototypes={
             'CreatePipe':([C.POINTER(W.HANDLE),C.POINTER(W.HANDLE),C.c_void_p,W.DWORD],W.BOOL),
@@ -241,6 +240,7 @@ class NativeProcess:
             'UpdateProcThreadAttribute':([C.c_void_p,W.DWORD,C.c_size_t,C.c_void_p,C.c_size_t,C.c_void_p,C.c_void_p],W.BOOL),
             'DeleteProcThreadAttributeList':([C.c_void_p],None),
             'CreateProcessW':([W.LPCWSTR,W.LPWSTR,C.c_void_p,C.c_void_p,W.BOOL,W.DWORD,C.c_void_p,W.LPCWSTR,C.c_void_p,C.POINTER(PI)],W.BOOL),
+            'TerminateProcess':([W.HANDLE,W.UINT],W.BOOL),
             'ResumeThread':([W.HANDLE],W.DWORD),'WaitForSingleObject':([W.HANDLE,W.DWORD],W.DWORD),
             'GetExitCodeProcess':([W.HANDLE,C.POINTER(W.DWORD)],W.BOOL),
             'ReadFile':([W.HANDLE,C.c_void_p,W.DWORD,C.POINTER(W.DWORD),C.c_void_p],W.BOOL),
@@ -280,7 +280,7 @@ class NativeProcess:
                 for h in inherited:
                     if not k.SetHandleInformation(h,1,1):raise C.WinError(C.get_last_error())
                 attribute(0x20002,inherited);inherit=True
-            env=dict(env);env.pop(SPEC,None);env.update(HOME=str(boundary.home),USERPROFILE=str(boundary.home),TEMP=str(boundary.home),TMP=str(boundary.home))
+            env=dict(env);env.pop(SPEC,None);env.pop('FORGE_WINDOWS_ISOLATION_EXPERIMENTAL',None);env.update(HOME=str(boundary.home),USERPROFILE=str(boundary.home),TEMP=str(boundary.home),TMP=str(boundary.home))
             environment=C.create_unicode_buffer('\0'.join(f'{key}={value}' for key,value in sorted(env.items()))+'\0\0')
             command=C.create_unicode_buffer(subprocess.list2cmdline(argv));pi=PI()
             executable=shutil.which(argv[0],path=env.get('PATH','')) or argv[0]
@@ -307,13 +307,15 @@ class NativeProcess:
             done=W.DWORD()
             if not self.k.WriteFile(self.input,data,len(data),C.byref(done),None):raise OSError('Native input pipe closed')
             data=data[done.value:]
-    def isalive(self):return self.k.WaitForSingleObject(self.process,0)==258
+    def isalive(self):return not self.closed and self.k.WaitForSingleObject(self.process,0)==258
     @property
     def exitstatus(self):
+        if self.final_code is not None:return self.final_code
         code=W.DWORD();self.k.GetExitCodeProcess(self.process,C.byref(code));return None if code.value==259 else code.value
     def setwinsize(self,rows,cols):
         if self.pseudo and self.k.ResizePseudoConsole(self.pseudo,COORD(cols,rows))<0:raise OSError('Native console resize failed')
     def close(self):
+        if self.closed:return
         if self.job:
             self.k.TerminateJobObject(self.job,125)
             class Accounting(C.Structure):
@@ -325,6 +327,10 @@ class NativeProcess:
                 if time.monotonic()>end:raise OSError('Native process tree still alive; grants must not be restored')
                 time.sleep(.03)
             self.k.CloseHandle(self.job);self.job=None
+        if self.process and self.isalive():
+            self.k.TerminateProcess(self.process,125);self.k.WaitForSingleObject(self.process,5000)
+        if self.process:self.final_code=self.exitstatus
+        self.closed=True
         if self.pseudo:
             # Reader must drain concurrently; closing ConPTY can otherwise wait forever.
             pseudo=self.pseudo;self.pseudo=None
