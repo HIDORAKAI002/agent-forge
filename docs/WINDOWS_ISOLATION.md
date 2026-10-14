@@ -12,3 +12,7 @@ The new native implementation uses a Less Privileged AppContainer (LPAC), not WS
 - Real isolated ConPTY for interactive CLI sessions; isolated standard I/O for MCP and parent-side helpers.
 
 Remaining acceptance gates include native test results, post-launch junction/hard-link attempts, descendant cleanup, interruption recovery, standard-user/runtime compatibility, and local Ollama loopback behavior. A failed cleanup retains its journal and does not silently run unrestricted.
+
+## Acceptance findings
+
+Native CI found that appending denial ACEs after inherited project grants did not protect Git metadata. The implementation now inserts explicit profile denials first using the Windows SDDL parser and avoids automatic inheritance propagation during setup. Original project DACLs are journaled and restored after process-tree termination; do not edit host ACLs concurrently while a boundary is active. Crash recovery checks the recorded child process identity before restoring grants. These changes require native CI readback; they are not a release-enable decision. The isolated interactive ConPTY startup gate is still unresolved.

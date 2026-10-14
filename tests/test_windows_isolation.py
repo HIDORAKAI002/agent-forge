@@ -20,15 +20,23 @@ def setup(tmp_path,monkeypatch):
 def test_native_stdio_filesystem_and_cleanup(tmp_path,monkeypatch):
     import win32security as S
     p,r,d,s=setup(tmp_path,monkeypatch)
-    before=S.ConvertSecurityDescriptorToStringSecurityDescriptor(S.GetNamedSecurityInfo(str(p),S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|0x10),1,S.DACL_SECURITY_INFORMATION|S.SACL_SECURITY_INFORMATION)
+    before=S.GetNamedSecurityInfo(str(p),S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|0x10)
+    before_acl=[before.GetSecurityDescriptorDacl().GetAce(i) for i in range(before.GetSecurityDescriptorDacl().GetAceCount())]
+    before_label=before.GetSecurityDescriptorSacl()
     code=f'echo PROJECT_OK>"{p / "written.txt"}" & type "{r / "read.txt"}" & type "{d / "secret.txt"}" & echo ESCAPE>"{d / "outside.txt"}" & echo ESCAPE>"{r / "blocked.txt"}" & echo NATIVE_BOUNDARY_DONE'
     argv,env=s.wrap([os.environ['COMSPEC'],'/d','/c',code],p,dict(os.environ,OTHER_API_KEY='FAKE_NOT_INHERITED'))
     result=subprocess.run(argv,cwd=p,env=env,capture_output=True,text=True,timeout=90)
     assert result.returncode==0,(result.stdout,result.stderr)
     assert 'APPROVED' in result.stdout and 'HIDDEN' not in result.stdout,(result.stdout,result.stderr)
     assert (p/'written.txt').exists() and not (d/'outside.txt').exists() and not (r/'blocked.txt').exists()
-    after=S.ConvertSecurityDescriptorToStringSecurityDescriptor(S.GetNamedSecurityInfo(str(p),S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|0x10),1,S.DACL_SECURITY_INFORMATION|S.SACL_SECURITY_INFORMATION)
-    assert before==after,(before,after)
+    after=S.GetNamedSecurityInfo(str(p),S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|0x10)
+    after_acl=[after.GetSecurityDescriptorDacl().GetAce(i) for i in range(after.GetSecurityDescriptorDacl().GetAceCount())]
+    # Empty-vs-absent SACL serialization is not a permission change. Actual
+    # ACEs (including inherited flags) and integrity entries must be restored.
+    assert before_acl==after_acl,(before_acl,after_acl)
+    after_label=after.GetSecurityDescriptorSacl()
+    entries=lambda acl:[] if acl is None else [acl.GetAce(i) for i in range(acl.GetAceCount())]
+    assert entries(before_label)==entries(after_label)
     assert not list((tmp_path/'trusted-config/windows-boundary').glob('AgentForge.*.json'))
 
 
@@ -74,3 +82,33 @@ def test_native_profile_grant_creation_and_restore(tmp_path,monkeypatch):
     try:
         boundary.open();assert boundary.sid and boundary.home.is_dir()
     finally:boundary.close()
+
+def test_native_broker_interruption_recovers_grants(tmp_path,monkeypatch):
+    """Kill the trusted wrapper: its Job must die before journal recovery."""
+    import psutil
+    from forge.windows_isolation import Boundary
+    p,r,d,s=setup(tmp_path,monkeypatch)
+    command=f'echo STARTED>"{p / "started.txt"}" & set /p WAIT='
+    argv,env=s.wrap([os.environ['COMSPEC'],'/d','/c',command],p,dict(os.environ))
+    wrapper=subprocess.Popen(argv,cwd=p,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    record=None
+    try:
+        end=time.monotonic()+20
+        while time.monotonic()<end:
+            journals=list((tmp_path/'trusted-config/windows-boundary').glob('AgentForge.*.json'))
+            if (p/'started.txt').exists() and journals:
+                record=json.loads(journals[0].read_text());break
+            if wrapper.poll() is not None:
+                raise AssertionError(f'Wrapper exited before interruption: {wrapper.communicate()}')
+            time.sleep(.03)
+        assert record and 'child' in record,'Native command never became ready'
+        wrapper.kill();wrapper.wait(timeout=10)
+        process=psutil.Process(record['child']['pid']) if psutil.pid_exists(record['child']['pid']) else None
+        if process and process.create_time()==record['child']['created']:process.wait(timeout=10)
+        recovery=Boundary(p,s.policy)
+        try:recovery.open()
+        finally:recovery.close()
+        assert not list((tmp_path/'trusted-config/windows-boundary').glob('AgentForge.*.json'))
+    finally:
+        if wrapper.poll() is None:wrapper.kill();wrapper.wait(timeout=10)
+        for pipe in (wrapper.stdin,wrapper.stdout,wrapper.stderr):pipe.close()

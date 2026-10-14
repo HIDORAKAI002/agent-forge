@@ -34,7 +34,7 @@ async def main():
                     await pilot.pause(.05)
                     if app.ui('#ruflo-tool-result',TextArea).text:break
                 assert 'memory_stats' in app.ui('#ruflo-tool-result',TextArea).text
-                scroll.scroll_to_widget(app.ui('#setup-ruflo-tool-review'),animate=False,top=True);await pilot.pause();app.save_screenshot('42-ruflo-tools-result.svg',str(OUT))
+                scroll.scroll_to_widget(app.ui('#ruflo-tool-result'),animate=False,top=True,force=True,immediate=True);await pilot.pause(.5);app.save_screenshot('42-ruflo-tools-result.svg',str(OUT))
                 await pilot.resize_terminal(100,36);scroll.scroll_to_widget(app.ui('#ruflo-tools-section'),animate=False,top=True);await pilot.pause();app.save_screenshot('43-ruflo-tools-compact.svg',str(OUT))
         finally:
             app.tool_gateway.close();app.ruflo.close();app.ollama.close();app.planner.close();app.voice.close();app.runtime.close()

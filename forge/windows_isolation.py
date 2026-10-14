@@ -106,11 +106,19 @@ class Boundary:
         sd=S.GetSecurityInfo(handle,S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION)
         acl=sd.GetSecurityDescriptorDacl()
         if acl is None:raise ValueError('NULL DACL grant inputs are refused')
-        flags=3 if inherit else 0
-        # PyACL insertion automatically reallocates and canonicalizes ACE order.
-        if denied:acl.AddAccessDeniedAceEx(S.ACL_REVISION_DS,flags,denied,sid)
-        acl.AddAccessAllowedAceEx(S.ACL_REVISION_DS,flags,mask,sid)
-        S.SetSecurityInfo(handle,S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION,None,None,acl,None)
+        # AddAccess*AceEx appends; it does NOT canonicalize inherited ACE order.
+        # Put the unique profile's explicit denial BEFORE inherited project
+        # grants. Preserve all original ACEs, including object/callback ACEs,
+        # by round-tripping through the Windows SDDL parser.
+        original=S.ConvertSecurityDescriptorToStringSecurityDescriptor(sd,1,S.DACL_SECURITY_INFORMATION)
+        start=original.find('(')
+        prefix,body=(original[:start],original[start:]) if start>=0 else (original,'')
+        flags='OICI' if inherit else '';name=S.ConvertSidToStringSid(sid)
+        additions=(f'(D;{flags};0x{denied:x};;;{name})' if denied else '')+f'(A;{flags};0x{mask:x};;;{name})'
+        updated=S.ConvertStringSecurityDescriptorToSecurityDescriptor(prefix+additions+body,1)
+        # Avoid SetSecurityInfo's automatic inheritance propagation changing
+        # descendants before their individually reviewed grants are applied.
+        S.SetKernelObjectSecurity(handle,S.DACL_SECURITY_INFORMATION,updated)
 
     @staticmethod
     def revoke(handle,sid):
@@ -122,12 +130,25 @@ class Boundary:
             try:same=bytes(ace[-1])==bytes(sid)
             except (TypeError,ValueError):same=False
             if same:acl.DeleteAce(i)
-        S.SetSecurityInfo(handle,S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION,None,None,acl,None)
+        sd.SetSecurityDescriptorDacl(True,acl,False)
+        S.SetKernelObjectSecurity(handle,S.DACL_SECURITY_INFORMATION,sd)
 
     def restore(self,record):
         import win32security as S
+        import psutil
+        # Job closure on broker death is asynchronous. Never revoke/restore
+        # grants while the recorded root process can still use them.
+        child=record.get('child')
+        if child:
+            try:
+                process=psutil.Process(child['pid'])
+                if process.create_time()==child['created']:
+                    try:process.wait(timeout=5)
+                    except psutil.TimeoutExpired:
+                        raise ValueError('Recorded native child is still alive; recovery refused')
+            except psutil.NoSuchProcess:pass
         sid=S.ConvertStringSidToSid(record['sid']);project=Path(record['project'])
-        original={item['identity']:item['label'] for item in record['objects'] if item['project']}
+        original={item['identity']:item for item in record['objects'] if item['project']}
         # Only original approved roots; no walk through junctions created by a child.
         items={item['path']:item['project'] for item in record['objects']}
         if project.exists():
@@ -143,7 +164,14 @@ class Boundary:
             unlinked(p)
             with self.handle(p) as h:
                 identity=self.identity(h);self.revoke(h,sid)
-                if is_project:self.set_label(h,original.get(identity,'S:(ML;;NW;;;ME)'))
+                if is_project:
+                    saved=original.get(identity)
+                    if saved and saved.get('dacl'):
+                        # Original security is restored after all processes stop.
+                        # Concurrent host-side ACL editing is unsupported.
+                        sd=S.ConvertStringSecurityDescriptorToSecurityDescriptor(saved['dacl'],1)
+                        S.SetKernelObjectSecurity(h,S.DACL_SECURITY_INFORMATION,sd)
+                    self.set_label(h,saved['label'] if saved else 'S:(ML;;NW;;;ME)')
         if record.get('loopback'):
             import subprocess
             result=subprocess.run(['CheckNetIsolation.exe','LoopbackExempt','-d','-n='+record['name']],capture_output=True,timeout=15)
@@ -177,7 +205,9 @@ class Boundary:
             # Snapshot integrity labels BEFORE any inheritable label changes.
             objects=[]
             for p,is_project in [(p,True) for p in paths(self.project)]+[(p,False) for root in grants for p in paths(root)]:
-                with self.handle(p) as h:objects.append({'path':str(p),'project':is_project,'identity':self.identity(h),'label':self.label(h) if is_project else None})
+                with self.handle(p) as h:
+                    dacl=S.ConvertSecurityDescriptorToStringSecurityDescriptor(S.GetSecurityInfo(h,S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION),1,S.DACL_SECURITY_INFORMATION)
+                    objects.append({'path':str(p),'project':is_project,'identity':self.identity(h),'label':self.label(h) if is_project else None,'dacl':dacl})
             sid_pointer=C.c_void_p()
             result=self.userenv.CreateAppContainerProfile(self.name,self.name,'Temporary Agent Forge project boundary',None,0,C.byref(sid_pointer))
             if result<0:raise OSError(result,'CreateAppContainerProfile failed; no unrestricted fallback')
@@ -291,6 +321,9 @@ class NativeProcess:
             executable=shutil.which(argv[0],path=env.get('PATH','')) or argv[0]
             if not k.CreateProcessW(executable,command,None,None,inherit,0x80000|0x400|0x4,environment,str(cwd),C.byref(si),C.byref(pi)):raise OSError(C.get_last_error(),'CreateProcessW under native LPAC failed')
             self.process=pi.hProcess;self.pid=pi.dwProcessId;self.handles.extend([pi.hProcess,pi.hThread])
+            import psutil
+            boundary.record['child']={'pid':self.pid,'created':psutil.Process(self.pid).create_time()}
+            boundary.write_record()
             from .windows_broker import job_for
             _,self.job=job_for(self.pid)
             if k.ResumeThread(pi.hThread)==0xFFFFFFFF:raise C.WinError(C.get_last_error())
