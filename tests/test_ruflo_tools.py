@@ -111,3 +111,11 @@ print('REAL_RUFLO_BOUNDARY_OK')
         assert 'REAL_RUFLO_BOUNDARY_OK' in json.dumps(results),json.dumps(results)[:500]
         assert (project/'upstream-wrote.txt').read_text()=='ok'
         assert not (denied/'outside.txt').exists() and not (reference/'blocked.txt').exists()
+
+
+def test_fixed_runtime_flags_survive_environment_filtering(tmp_path,monkeypatch):
+    project=tmp_path/'project';project.mkdir();connection=RufloToolSession(project)
+    monkeypatch.setattr(connection.sandbox,'wrap',lambda a,c,e:(a,{'PATH':'/usr/bin'}))
+    argv,env=connection.wrap_runtime(['ruflo'],{'DO_NOT_TRACK':'0','OTHER_API_KEY':'FAKE'})
+    assert env['RUFLO_AUTO_UPDATE']=='false' and env['CLAUDE_FLOW_AUTO_UPDATE']=='false'
+    assert env['DO_NOT_TRACK']=='1' and 'OTHER_API_KEY' not in env

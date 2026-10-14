@@ -22,6 +22,8 @@ from .settings import Preferences
 MAX_REQUEST_BYTES = 100_000
 MAX_RESULT_BYTES = 1_000_000
 MAX_REQUESTS = 20
+RUNTIME_FLAGS = {'RUFLO_AUTO_UPDATE': 'false', 'CLAUDE_FLOW_AUTO_UPDATE': 'false',
+                 'HF_HUB_DISABLE_TELEMETRY': '1', 'DO_NOT_TRACK': '1'}
 
 
 def canonical(value):
@@ -88,6 +90,11 @@ class RufloToolSession:
         self.policy = None
         self.audit_root = Preferences().root / 'ruflo-reviews'
 
+    def wrap_runtime(self, argv, env):
+        argv, clean = self.sandbox.wrap(argv, self.project, env)
+        clean.update(RUNTIME_FLAGS)  # Fixed non-secret settings, not inherited values.
+        return argv, clean
+
     def launch_spec(self):
         if not self.sandbox.policy['enabled']:
             raise ValueError('Broad Ruflo tools require enforced project isolation; no host-side fallback')
@@ -106,13 +113,13 @@ class RufloToolSession:
         if any(Path(p).is_absolute() and Path(p).resolve().is_relative_to(self.project) for p in argv[:2]):
             raise ValueError('Ruflo runtime entrypoint overlaps writable project')
         # Use the SAME boundary for version detection; a version command is code too.
-        version_argv, version_env = self.sandbox.wrap([argv[0], *argv[1:2], '--version'] if os.name == 'nt' else [argv[0], '--version'], self.project, env)
+        version_argv, version_env = self.wrap_runtime([argv[0], *argv[1:2], '--version'] if os.name == 'nt' else [argv[0], '--version'], env)
         checked = subprocess.run(version_argv, cwd=self.project, env=version_env,
                                  capture_output=True, text=True, timeout=30)
         if checked.returncode or not re.search(rf'\bv{re.escape(VERSION)}\b', checked.stdout):
             raise ValueError('Pinned Ruflo runtime cannot execute inside the boundary; review its read-only runtime grants')
         self.policy = json.loads(canonical(self.sandbox.policy))
-        return self.sandbox.wrap(argv, self.project, env)
+        return self.wrap_runtime(argv, env)
 
     @asynccontextmanager
     async def connect(self):
