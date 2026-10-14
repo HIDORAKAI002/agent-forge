@@ -1,22 +1,17 @@
 {
   "suite": "windows-3.13",
-  "source_commit": "a64ea32fc16805367619176f5be7e4dba715d9b8",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38576064785",
+  "source_commit": "cb4c19431a610d0e4f3f762516102d4661fc928d",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38576920733",
   "status": "failed",
-  "tests": 40,
-  "passed": 34,
-  "failed": 3,
-  "skipped": 3,
+  "tests": 43,
+  "passed": 37,
+  "failed": 2,
+  "skipped": 4,
   "failed_cases": [
     {
       "name": "test_native_stdio_filesystem_and_cleanup",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: ('D:(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;OW)', 'D:AI(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;FA;;;OW)S:AINO_ACCESS_CONTROL')\nassert 'D:(A;OICI;FA...OICI;FA;;;OW)' == 'D:AI(A;OICII...CCESS_CONTROL'\n  \n  - D:AI(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)(A;OICIID;FA;;;OW)S:AINO_ACCESS_CONTROL\n  ?   --       --                --                --         ---------------------\n  + D:(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;OW)"
-    },
-    {
-      "name": "test_native_git_control_readonly",
-      "class": "tests.test_windows_isolation",
-      "message": "AssertionError: assert 'CORRUPT \\n' == 'CANONICAL'\n  \n  - CANONICAL\n  + CORRUPT"
+      "message": "AssertionError: ([((0, 3), 2032127, <PySID object at 0x0000011C17BD78E0>), ((0, 3), 2032127, <PySID object at 0x0000011C17BD7700>), ((...), ((0, 19), 2032127, <PySID object at 0x0000011C17BD77C0>), ((0, 19), 2032127, <PySID object at 0x0000011C17BD7800>)])\nassert [((0, 3), 203...11C17BD7BC0>)] == [((0, 19), 20...11C17BD7800>)]\n  \n  At index 0 diff: ((0, 3), 2032127, <PySID object at 0x0000011C17BD78E0>) != ((0, 19), 2032127, <PySID object at 0x0000011C17BD7AC0>)\n  \n  Full diff:\n    [\n        (\n            (\n                0,\n  -             19,\n  ?             ^^\n  +             3,\n  ?             ^\n            ),\n            2032127,\n  -         <PySID object at 0x0000011C17BD7AC0>,\n  ?                                         ^^\n  +         <PySID object at 0x0000011C17BD78E0>,\n  ?                                         ^^\n        ),\n        (\n            (\n                0,\n  -             19,\n  ?             ^^\n  +             3,\n  ?             ^\n            ),\n            2032127,\n  -         <PySID object at 0x0000011C17BD77C0>,\n  ?                                          ^\n  +         <PySID object at 0x0000011C17BD7700>,\n  ?                                          ^\n  "
     },
     {
       "name": "test_native_isolated_conpty",
