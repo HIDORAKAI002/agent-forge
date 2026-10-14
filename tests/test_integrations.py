@@ -173,3 +173,33 @@ def test_ruflo_refuses_project_executable_before_running(project,monkeypatch):
     try:
         with pytest.raises(ValueError,match='outside the writable project'):bridge.enable()
     finally:bridge.close();store.close()
+
+def test_trusted_broker_ignores_project_python_injection(tmp_path,monkeypatch):
+    from forge.terminal import Session
+    package=tmp_path/'forge';package.mkdir();(package/'__init__.py').write_text('')
+    marker=tmp_path/'ESCAPED_TRUSTED_BROKER'
+    attack=f'from pathlib import Path;Path({str(marker)!r}).write_text("host execution");raise SystemExit(123)'
+    for module in ('pty_broker.py','windows_broker.py'):(package/module).write_text(attack)
+    (tmp_path/'sitecustomize.py').write_text(attack)
+    monkeypatch.chdir(tmp_path);monkeypatch.setenv('PYTHONPATH',str(tmp_path))
+    s=Session([sys.executable,'-I','-c','print("TRUSTED_BROKER_OK",flush=True)'],str(tmp_path),'test')
+    try:
+        end=time.monotonic()+15
+        while time.monotonic()<end:
+            s.drain()
+            if s.status=='exited':break
+            time.sleep(.03)
+        assert s.exit_code==0 and 'TRUSTED_BROKER_OK' in '\n'.join(s.screen.display)
+        assert not marker.exists()
+    finally:s.stop()
+
+def test_windows_enforcement_never_falls_back_to_host(tmp_path,monkeypatch):
+    if os.name!='nt':pytest.skip('Native Windows fail-closed gate')
+    project=tmp_path/'project';project.mkdir();s=Sandbox(project)
+    with pytest.raises(ValueError,match='Windows sandbox unavailable'):
+        s.save({'enabled':True,'read_only':[],'network':False})
+    assert not s.policy['enabled']
+    # A policy copied from a Linux install must not bypass the launch-time gate.
+    s.policy={'enabled':True,'read_only':[],'network':False}
+    with pytest.raises(ValueError,match='refusing to launch'):
+        s.wrap(['cmd.exe'],project,dict(os.environ))

@@ -11,7 +11,7 @@ INSTALL_ROOT=${FORGE_INSTALL_ROOT:-${XDG_DATA_HOME:-$HOME/.local/share}/agent-fo
 BIN_ROOT=${FORGE_BIN_ROOT:-$HOME/.local/bin}
 [[ "$COMMAND_NAME" =~ ^[a-zA-Z][a-zA-Z0-9_-]{0,47}$ ]] || { echo 'Invalid command placeholder/name' >&2; exit 1; }
 command -v "$PYTHON" >/dev/null || { echo 'Install Python 3.11+ first.' >&2; exit 1; }
-"$PYTHON" -c 'import sys; assert sys.version_info >= (3,11), "Python 3.11+ required"'
+"$PYTHON" -I -c 'import sys; assert sys.version_info >= (3,11), "Python 3.11+ required"'
 [[ ! -L "$INSTALL_ROOT" ]] || { echo 'Refusing symlinked install directory' >&2; exit 1; }
 mkdir -p -- "$INSTALL_ROOT" "$BIN_ROOT"
 chmod 700 -- "$INSTALL_ROOT"
@@ -23,18 +23,18 @@ if [[ -e "$DEST" ]] && ! grep -q '^# Agent Forge managed launcher$' "$DEST"; the
   echo 'Command already exists and is not managed by Agent Forge. Choose FORGE_COMMAND.' >&2; exit 1
 fi
 echo '[1/3] Preparing isolated application environment'
-[[ -x "$VENV/bin/python" ]] || "$PYTHON" -m venv "$VENV"
+[[ -x "$VENV/bin/python" ]] || "$PYTHON" -I -m venv "$VENV"
 EXTRAS='mcp,credentials'
 [[ ${FORGE_VOICE:-0} != 1 ]] || EXTRAS+=',voice'
 echo '[2/3] Installing application and selected dependencies'
 # Regular installation copies package files: the source checkout can be removed afterward.
-"$VENV/bin/python" -m pip install "$ROOT[$EXTRAS]"
+"$VENV/bin/python" -I -m pip install "$ROOT[$EXTRAS]"
 echo '[3/3] Creating single-command launcher'
-TARGET="$VENV/bin/forge" LAUNCHER="$DEST" "$VENV/bin/python" - <<'PY'
+TARGET="$VENV/bin/python" LAUNCHER="$DEST" "$VENV/bin/python" -I - <<'PY'
 import os, shlex
 from pathlib import Path
 p=Path(os.environ['LAUNCHER'])
-p.write_text('#!/usr/bin/env bash\n# Agent Forge managed launcher\nexec '+shlex.quote(os.environ['TARGET'])+' "$@"\n')
+p.write_text('#!/usr/bin/env bash\n# Agent Forge managed launcher\nexec '+shlex.quote(os.environ['TARGET'])+' -I -m forge "$@"\n')
 p.chmod(0o700)
 PY
 printf '\nInstalled. Temporary launch command: %s\n' "$COMMAND_NAME"
@@ -44,7 +44,7 @@ if [[ :$PATH: != *:"$BIN_ROOT":* ]]; then
 fi
 printf 'Run %q --project /path/to/project\n' "$DEST"
 if [[ ${FORGE_CONFIGURE_PATH:-1} == 1 ]]; then
-  BIN_ROOT="$BIN_ROOT" "$VENV/bin/python" - <<'PY'
+  BIN_ROOT="$BIN_ROOT" "$VENV/bin/python" -I - <<'PY'
 import os, shlex
 from pathlib import Path
 home=Path.home()

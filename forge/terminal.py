@@ -59,7 +59,7 @@ class Session:
         self.screen = ForgeScreen(cols, rows)
         self.stream = pyte.Stream(self.screen)
         broker="forge.windows_broker" if os.name=="nt" else "forge.pty_broker"
-        self.process = subprocess.Popen([sys.executable, "-m", broker], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
+        self.process = subprocess.Popen([sys.executable, "-I", "-m", broker], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
         self._control_lock = threading.Lock()
         self._control(dict(argv=argv, cwd=cwd, env=env or dict(os.environ), rows=rows, cols=cols))
         handshake = json.loads(self.process.stderr.readline())

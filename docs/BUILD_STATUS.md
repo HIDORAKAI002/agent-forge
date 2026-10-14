@@ -30,7 +30,7 @@
 
 - Native Windows device/provider combinations beyond the passing 3.11/3.13 native CI suite remain unverified.
 - Native Windows/macOS OS sandbox is still missing. Linux/WSL Bubblewrap is implemented and tested; OFF mode remains unrestricted, and worktrees by themselves are never a sandbox.
-- Full upstream Ruflo surface is not enabled: browser/federation/autopilot/hive-mind execution modules are outside the implemented memory/routing bridge. Ruflo is not a second authoritative scheduler or memory store.
+- Broad Ruflo catalog access is now available through an explicitly reviewed sandboxed CLI gateway, separate from the TUI memory/routing bridge. Not every upstream backend is implemented or certified; no arbitrary credentials or host access are forwarded. Ruflo is not a second authoritative Forge scheduler or memory store.
 - Actual provider CLI account validation, broader Aider coding/sandbox validation, OS keyring/device behavior and microphone device testing remain separate from fixture-based automated tests.
 
 ## Verified evidence
@@ -53,3 +53,10 @@
 - [whisper.cpp](https://github.com/ggml-org/whisper.cpp): MIT native alternative with microphone examples and CPU/GPU backends; not vendored here.
 
 References: [Ruflo](https://github.com/ruvnet/ruflo), [Claude authentication](https://code.claude.com/docs/en/authentication), [Codex authentication](https://developers.openai.com/codex/auth/), [Gemini authentication](https://geminicli.com/docs/get-started/authentication/), [Aider + Ollama](https://aider.chat/docs/llms/ollama.html), [Aider options](https://aider.chat/docs/config/options.html).
+
+## Broader Ruflo gateway and startup hardening
+
+- Pinned runtime catalog discovery, schema validation, exact batch approval bound to tool definitions/arguments/workspace/permissions, redacted review audit, bounded outputs and timeouts. One MCP server per batch; no unrestricted host fallback.
+- Actual `memory_stats`, `workflow_list` and `terminal_execute` used inside the boundary, including successful project write/approved reference read and blocked unapproved access. This is not a pass for all 381 advertised tools.
+- Isolated Python startup for brokers and generated launchers prevents project package/startup-file/PYTHONPATH injection into trusted host processes.
+- Native Windows filesystem enforcement remains unfinished and explicitly fail-closed. API-key use does not require consumer Pro subscriptions; optional OS vaults and microphones are not provider accounts.

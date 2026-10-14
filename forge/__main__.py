@@ -20,9 +20,25 @@ def main(argv=None):
     add.add_argument("--author", default="agent")
     commands.add_parser("mcp", help="Shared project stdio MCP server")
     commands.add_parser("doctor", help="List installed CLI harnesses")
+    ruflo = commands.add_parser("ruflo", help="Permission-gated pinned upstream MCP tools")
+    ruflo.add_argument("operation", choices=["tools", "run"])
+    ruflo.add_argument("--requests-file", help="JSON array of explicit {tool, arguments} requests")
+    ruflo.add_argument("--approve", help="Exact review digest printed by the preview; permits listed side effects")
     args = parser.parse_args(argv)
+    if args.command == "ruflo" and args.operation == "run" and not args.requests_file:
+        parser.error("ruflo run requires --requests-file")
     try:
-        if args.command == "memory":
+        if args.command == "ruflo":
+            import asyncio
+            from .ruflo_tools import cli
+            try:
+                return asyncio.run(cli(args.project, args.operation, args.requests_file, args.approve))
+            except ValueError:
+                raise
+            except Exception:
+                # SDK errors may quote argument values; do not emit raw traces.
+                raise ValueError("Ruflo gateway failed or timed out; no rollback is claimed. Check pinned runtime, grants and schemas. No unrestricted fallback was used.") from None
+        elif args.command == "memory":
             store = Store(args.project)
             try:
                 result = store.memories(args.query) if args.operation == "list" else store.remember(args.text, args.kind, args.author, False)

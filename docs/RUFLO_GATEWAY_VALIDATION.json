@@ -1,0 +1,29 @@
+{
+  "scope": "Local actual Linux boundary and pinned Ruflo plus regression tests; not Windows filesystem acceptance",
+  "tests": 95,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 5,
+  "runtime": "Ruflo 3.56.9; Bubblewrap 0.10.0; Python 3.13",
+  "catalog_observed": 381,
+  "actual_upstream_calls": [
+    "memory_stats",
+    "workflow_list",
+    "terminal_execute"
+  ],
+  "security_checks": [
+    "project write",
+    "approved reference read",
+    "reference write denied",
+    "unapproved read denied",
+    "unapproved write denied",
+    "ambient provider key absent",
+    "project Python import injection blocked"
+  ],
+  "not_claimed": [
+    "Native Windows filesystem isolation",
+    "All 381 upstream tool backends certified",
+    "Cloud-provider account/device acceptance"
+  ],
+  "host_note": "Inherited/ambient host capabilities dropped with setpriv before tests; no host security was disabled."
+}

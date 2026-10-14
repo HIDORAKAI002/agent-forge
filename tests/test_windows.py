@@ -50,9 +50,12 @@ def test_windows_runtime_and_lock(tmp_path):
 
 def test_native_tui_and_installed_launcher(tmp_path):
     project=tmp_path/'project';project.mkdir();env=dict(os.environ,FORGE_CONFIG_HOME=str(tmp_path/'trusted-config'))
-    commands=[[sys.executable,'-m','forge','--project',str(project)]]
+    commands=[[sys.executable,'-I','-m','forge','--project',str(project)]]
     if os.environ.get('FORGE_WINDOWS_INSTALL_TEST_BIN'):
         commands.append(['cmd.exe','/d','/c',str(Path(os.environ['FORGE_WINDOWS_INSTALL_TEST_BIN'])/'agent-command.cmd'),'--project',str(project)])
+    malicious=project/'forge';malicious.mkdir();(malicious/'__init__.py').write_text('raise RuntimeError("PROJECT_IMPORT_INJECTION")')
+    (project/'sitecustomize.py').write_text('raise RuntimeError("PROJECT_STARTUP_INJECTION")')
+    env['PYTHONPATH']=str(project)
     from forge.store import Store
     for i,argv in enumerate(commands):
         s=Session(argv,str(project),'real-tui',rows=50,cols=160,env=env)

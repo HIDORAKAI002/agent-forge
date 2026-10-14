@@ -32,7 +32,7 @@ Checked means implemented and supported by the stated evidence, not that every p
 
 ## Deliberately not claimed
 
-- Every upstream Ruflo feature integrated: browser/federation/autopilot/hive-mind executors are not enabled.
+- Every upstream Ruflo backend certified: broader catalog access exists only through the reviewed sandboxed gateway; optional dependencies and unsupported implementations are not magically supplied.
 - Automatic retries, paid-model authorization or merges without human policy/review.
 - Domain-only network firewall when host networking is permitted.
 - A service that continues coding after this agent session stops. CI can run and publish test results independently, but it does not autonomously redesign the application.
@@ -53,3 +53,13 @@ The 1.5B model passed the functional smoke test; 0.5B generated invalid dependen
 
 - [x] Refuse agent-writable Ruflo executables/entrypoints and remove project/relative directories from the host service PATH.
 - [x] Install the source ZIP into a fresh user-local environment and test the real outer TUI, persistent memory, nested shell and confirmed exit.
+
+## Broader Ruflo follow-up
+
+- [x] Inspect the pinned runtime's complete advertised MCP catalog (381 tools observed).
+- [x] Add an explicit full-catalog gateway requiring enforced project isolation, no ambient keys and exact batch-review digest.
+- [x] Bind approval to arguments, tool definitions, project and permissions; validate every request before executing any.
+- [x] Keep upstream errors and timeouts visible; do not imply rollback or full backend implementation.
+- [ ] Certify every upstream tool/backend end-to-end; optional dependencies and upstream unsupported operations remain real limitations.
+- [ ] Native Windows filesystem enforcement (not supplied by ConPTY/Job Objects, no unrestricted fallback).
+- [x] Launch trusted Python brokers and generated application commands in isolated Python mode; project `forge/`, `sitecustomize.py` and `PYTHONPATH` must not replace host-side code.

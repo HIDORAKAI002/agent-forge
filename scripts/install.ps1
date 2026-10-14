@@ -18,17 +18,17 @@ $launcher = Join-Path $bin "$command.cmd"
 if ((Test-Path $launcher) -and -not ((Get-Content -Raw $launcher).StartsWith('REM Agent Forge managed launcher'))) { throw 'Refusing to overwrite unrelated command' }
 $source = Split-Path -Parent $PSScriptRoot
 $python = if (Get-Command python.exe -ErrorAction SilentlyContinue) { 'python.exe' } else { 'py' }
-& $python -c 'import sys;assert sys.version_info >= (3,11), "Python 3.11+ required"'
+& $python -I -c 'import sys;assert sys.version_info >= (3,11), "Python 3.11+ required"'
 if ($LASTEXITCODE -ne 0) { throw 'Install Python 3.11+ first' }
 $venv = Join-Path $root 'venv'; SafePath $venv
-& $python -m venv $venv
+& $python -I -m venv $venv
 if ($LASTEXITCODE -ne 0) { throw 'Unable to create package environment' }
 $exe = Join-Path $venv 'Scripts\python.exe'
 $extras = 'mcp,credentials'; if ($Voice -or $env:FORGE_VOICE -eq '1') { $extras += ',voice' }
-& $exe -m pip install --upgrade "$source`[$extras`]"
+& $exe -I -m pip install --upgrade "$source`[$extras`]"
 if ($LASTEXITCODE -ne 0) { throw 'Package installation failed' }
-$entry = Join-Path $venv 'Scripts\forge.exe'
-[IO.File]::WriteAllText($launcher, "REM Agent Forge managed launcher`r`n@echo off`r`nchcp 65001 >nul`r`n`"$entry`" %*", [Text.UTF8Encoding]::new($false))
+$entry = $exe
+[IO.File]::WriteAllText($launcher, "REM Agent Forge managed launcher`r`n@echo off`r`nchcp 65001 >nul`r`n`"$entry`" -I -m forge %*", [Text.UTF8Encoding]::new($false))
 if ($env:FORGE_CONFIGURE_PATH -ne '0') {
     $old = [Environment]::GetEnvironmentVariable('Path','User')
     if (-not (($old -split ';') -contains $bin)) {
