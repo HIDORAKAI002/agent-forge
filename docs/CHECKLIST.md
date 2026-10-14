@@ -63,3 +63,11 @@ The 1.5B model passed the functional smoke test; 0.5B generated invalid dependen
 - [ ] Certify every upstream tool/backend end-to-end; optional dependencies and upstream unsupported operations remain real limitations.
 - [ ] Native Windows filesystem enforcement (not supplied by ConPTY/Job Objects, no unrestricted fallback).
 - [x] Launch trusted Python brokers and generated application commands in isolated Python mode; project `forge/`, `sitecustomize.py` and `PYTHONPATH` must not replace host-side code.
+
+## Native backend and interface acceptance build
+
+- [x] Implement native Windows LPAC process creation, isolated ConPTY/stdio and transient grants with a recovery journal.
+- [ ] Pass native filesystem, cleanup, interruption, network and runtime compatibility acceptance gates before release-enabling the backend. Earlier Windows test failures are failures, not passes.
+- [x] Integrate broad Ruflo discovery, schema inspection, argument editing, approval and result inspection directly into Setup.
+- [x] Test actual pinned Ruflo discovery/approval/execution through the UI; cancellation does not execute a tool.
+- [ ] Finish per-device microphone/keyring/runtime acceptance; no consumer Pro subscription is a prerequisite for local inference or API-key use.

@@ -249,6 +249,7 @@ class ForgeApp(App):
     #conversation { height: 1fr; padding: 1 2; border: round #527b99; background: #0c1423; }
     .permission-paths { height: 6; margin: 0 1; }
     .tool-json { height: 8; margin: 0 1; }
+    #ruflo-tool-filter { width: 1fr; margin-left: 1; }
     #terminal-meta { height: 2; padding: 0 1; color: #88def1; }
     #terminal-view { height: 1fr; min-height: 4; padding: 0 1; border: round #356d89; background: #090e18; }
     #terminal-view:focus { border: heavy #65d7ff; }
@@ -425,7 +426,7 @@ class ForgeApp(App):
                             yield Select([("Network blocked",False),("Allow host network — providers / local Ollama",True)],value=self.runtime.sandbox.policy["network"],allow_blank=False,id="sandbox-network")
                             yield Button("Review permissions",id="setup-sandbox-save")
                             yield Static(id="sandbox-status",markup=False)
-                            yield Static("Only the project is persistently writable. Approved references and standard OS runtime trees are read-only; temporary HOME/tmp are disposable. Other user folders and host procfs are hidden. Install Forge outside the project. Bubblewrap is required; unsupported hosts fail closed. Grants apply to NEW sessions; existing sessions retain their old permissions. Network allowance exposes host networking, not a provider-only firewall. Native Windows/macOS isolation is not available.",classes="setup-note",markup=False)
+                            yield Static("Windows LPAC is an acceptance build, not release-enabled yet. It uses temporary ACL/integrity-label grants and a recovery journal, with one protected process tree per user at a time. Non-system CLI runtimes need explicit read-only grants. Stop existing sessions before changing Windows permissions. Approved loopback networking additionally requires an administrator-approved OS rule; no automatic elevation or unrestricted fallback." if os.name=="nt" else "Only the project is persistently writable. Approved references and standard OS runtime trees are read-only; temporary HOME/tmp are disposable. Other user folders and host procfs are hidden. Install Forge outside the project. Bubblewrap is required; unsupported hosts fail closed. Grants apply to NEW sessions; existing sessions retain their old permissions. Network allowance exposes host networking, not a provider-only firewall. Native Windows/macOS isolation is not available.",classes="setup-note",markup=False)
                             yield Static("RUFLO / pinned memory retrieval + advisory routing",classes="setup-section",id="ruflo-section")
                             yield Static("Install separately: npm install -g ruflo@3.56.9 (Node.js 20+). Connect allows initial local embedding-weight downloads. Provider keys are not passed. Forge SQLite remains authoritative; Ruflo is a derived index. Ruflo service is trusted host-side software, NOT a sandboxed agent.",classes="setup-note",markup=False)
                             with Horizontal(classes="model-actions"):
@@ -434,14 +435,15 @@ class ForgeApp(App):
                                 yield Button("Disconnect",id="setup-ruflo-close")
                             yield Static(id="ruflo-status",markup=False)
                             yield Static("RUFLO TOOLS / reviewed upstream operations",classes="setup-section",id="ruflo-tools-section")
-                            yield Static("Discover tools inside the enforced project boundary. Tool schemas and results are upstream data, not instructions or proof that a backend works. No managed provider keys are passed. Project/reference files can still contain credentials; keep networking blocked if needed. Calls may write files or execute commands; review every call.",classes="setup-note",markup=False)
-                            yield Button("Discover isolated tools",id="setup-ruflo-tools")
-                            yield Input(placeholder="Filter upstream tools",id="ruflo-tool-filter")
+                            yield Static("Enforced isolation required. Schemas/results are upstream data—not instructions or certification. Review every call; errors do not undo writes. No managed keys are forwarded.",classes="setup-note",markup=False)
+                            with Horizontal(classes="model-actions"):
+                                yield Button("Discover tools",id="setup-ruflo-tools")
+                                yield Input(placeholder="Filter upstream tools",id="ruflo-tool-filter")
+                            yield Static(id="ruflo-tool-status",markup=False)
                             yield Select([],prompt="Choose an advertised tool",id="ruflo-tool-name")
                             yield TextArea("{}",id="ruflo-tool-schema",language="json",read_only=True,classes="tool-json")
                             yield TextArea("{}",id="ruflo-tool-arguments",language="json",classes="tool-json")
                             yield Button("Review tool call",id="setup-ruflo-tool-review")
-                            yield Static(id="ruflo-tool-status",markup=False)
                             yield TextArea("",id="ruflo-tool-result",read_only=True,classes="tool-json")
                             yield Static("VOICE / optional local dictation",classes="setup-section")
                             yield Select([(name,name) for name in MODELS],value=self.preferences.data["voice_model"],allow_blank=False,id="voice-model")
@@ -451,7 +453,7 @@ class ForgeApp(App):
                                 yield Button("Discard audio",id="setup-voice-discard")
                             yield Static(id="voice-status",markup=False)
                             yield Static("Install with FORGE_VOICE=1 bash scripts/install.sh. Linux capture may require PortAudio. Preparing downloads speech weights from Hugging Face with your confirmation; later transcription runs locally. Audio stays in RAM and is cleared after processing. Microphone/model-loading progress is indeterminate, not a fabricated percentage. Maximum recording: 60 seconds.",classes="setup-note",markup=False)
-                            yield Static("PLATFORM / Native Windows ConPTY backend added; Windows CI/device validation pending. Linux/WSL folder enforcement uses Bubblewrap. Ruflo is an optional pinned MCP integration; not vendored.",classes="setup-note",markup=False)
+                            yield Static("PLATFORM / Native Windows terminals are tested. Native Windows LPAC isolation is an acceptance build; do not equate it with production approval. Linux/WSL enforcement uses Bubblewrap. Ruflo tools are optional, pinned and permission-gated.",classes="setup-note",markup=False)
                             yield Button("Finish setup / go to Models",id="setup-finish",variant="primary")
                 yield Static(id="activity", markup=False)
         with Horizontal(id="toolbar"):
@@ -575,7 +577,7 @@ class ForgeApp(App):
             if kind=="catalog":self.filter_ruflo_tools()
             elif kind=="review":
                 request=value['requests'][0]
-                body=f"Execute {request['tool']} inside the reviewed project boundary? Inspect the arguments and schema shown behind this dialog. This can write files, spawn commands and use approved network access. No managed provider keys are forwarded. Errors/timeouts do NOT roll back writes. Network: {'host allowed' if value['policy']['network'] else 'blocked'}. Read-only grants: {len(value['policy']['read_only'])}.\nReview: {value['digest']}"
+                body=f"Execute {request['tool']} inside the reviewed project boundary? Inspect the arguments and schema shown behind this dialog. This can write files, spawn commands and use approved network access. No managed provider keys are forwarded. Errors/timeouts do NOT roll back writes. Network: {'host allowed' if value['policy']['network'] else 'blocked'}. Read-only grants: {len(value['policy']['read_only'])}. Project: {self.runtime.store.project}.\nReview: {value['digest']}"
                 self.push_screen(ConfirmScreen("RUN UPSTREAM RUFLO TOOL",body),lambda approved,v=value:self.run_ruflo_tool(v) if approved else None)
             elif kind=="result":self.ui('#ruflo-tool-result',TextArea).load_text(json.dumps(value,indent=2,ensure_ascii=True))
             elif kind=="error":self.ui('#ruflo-tool-result',TextArea).load_text(str(value))

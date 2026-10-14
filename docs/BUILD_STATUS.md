@@ -60,3 +60,7 @@ References: [Ruflo](https://github.com/ruvnet/ruflo), [Claude authentication](ht
 - Actual `memory_stats`, `workflow_list` and `terminal_execute` used inside the boundary, including successful project write/approved reference read and blocked unapproved access. This is not a pass for all 381 advertised tools.
 - Isolated Python startup for brokers and generated launchers prevents project package/startup-file/PYTHONPATH injection into trusted host processes.
 - Native Windows filesystem enforcement remains unfinished and explicitly fail-closed. API-key use does not require consumer Pro subscriptions; optional OS vaults and microphones are not provider accounts.
+
+## Current acceptance build
+
+Native Windows LPAC code is implemented behind an experimental gate, with real Windows tests submitted. It is not release-enabled while native tests fail or remain incomplete. The first native attempts exposed handle/context API and wrapper-environment issues; fixes are being validated. The broad Ruflo tools workflow now exists inside Setup and has passed actual pinned-runtime UI tests on Linux. See [Windows isolation](WINDOWS_ISOLATION.md) for serialization, runtime and networking limits.

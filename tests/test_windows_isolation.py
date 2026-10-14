@@ -25,7 +25,7 @@ def test_native_stdio_filesystem_and_cleanup(tmp_path,monkeypatch):
     argv,env=s.wrap([os.environ['COMSPEC'],'/d','/c',code],p,dict(os.environ,OTHER_API_KEY='FAKE_NOT_INHERITED'))
     result=subprocess.run(argv,cwd=p,env=env,capture_output=True,text=True,timeout=90)
     assert result.returncode==0,(result.stdout,result.stderr)
-    assert 'APPROVED' in result.stdout and 'HIDDEN' not in result.stdout
+    assert 'APPROVED' in result.stdout and 'HIDDEN' not in result.stdout,(result.stdout,result.stderr)
     assert (p/'written.txt').exists() and not (d/'outside.txt').exists() and not (r/'blocked.txt').exists()
     after=S.ConvertSecurityDescriptorToStringSecurityDescriptor(S.GetNamedSecurityInfo(str(p),S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|0x10),1,S.DACL_SECURITY_INFORMATION|S.SACL_SECURITY_INFORMATION)
     assert before==after,(before,after)
@@ -34,10 +34,11 @@ def test_native_stdio_filesystem_and_cleanup(tmp_path,monkeypatch):
 
 def test_native_git_control_readonly(tmp_path,monkeypatch):
     p,r,d,s=setup(tmp_path,monkeypatch);metadata=p/'.git';metadata.mkdir();(metadata/'config').write_text('CANONICAL')
-    argv,env=s.wrap([os.environ['COMSPEC'],'/d','/c',f'echo CORRUPT>"{metadata / "config"}" & echo DONE'],p,dict(os.environ))
+    argv,env=s.wrap([os.environ['COMSPEC'],'/d','/c',f'echo PROJECT_OK>"{p / "allowed.txt"}" & echo CORRUPT>"{metadata / "config"}" & echo DONE'],p,dict(os.environ))
     result=subprocess.run(argv,cwd=p,env=env,capture_output=True,text=True,timeout=90)
     assert result.returncode==0,result.stderr
     assert (metadata/'config').read_text()=='CANONICAL'
+    assert (p/'allowed.txt').exists(),(result.stdout,result.stderr)
 
 
 def test_native_isolated_conpty(tmp_path,monkeypatch):
@@ -51,7 +52,7 @@ def test_native_isolated_conpty(tmp_path,monkeypatch):
             session.drain()
             if 'REAL_ISOLATED_CONPTY' in '\n'.join(session.screen.display):break
             time.sleep(.03)
-        else:raise AssertionError('Native isolated terminal did not render')
+        else:raise AssertionError(f'Native isolated terminal did not render: status={session.status} exit={session.exit_code} broker={session.process.poll()} screen={repr(chr(10).join(session.screen.display))[:700]}')
         session.resize(35,110);session.write('exit\r')
         end=time.monotonic()+20
         while session.status=='running' and time.monotonic()<end:session.drain();time.sleep(.03)

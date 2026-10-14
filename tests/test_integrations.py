@@ -201,3 +201,15 @@ def test_windows_enforcement_unavailable_dependency_fails_closed(tmp_path,monkey
     assert not s.policy['enabled']
     s.policy={'enabled':True,'read_only':[],'network':False}
     with pytest.raises(ValueError,match='dependency unavailable'):s.wrap(['cmd.exe'],project,dict(os.environ))
+
+def test_native_commandline_preserves_explicit_shell_quotes():
+    from forge.platform_support import native_commandline
+    payload='echo OK>"C:\\project with space\\file.txt" & type "C:\\reference\\read.txt"'
+    line=native_commandline(['cmd.exe','/d','/c',payload])
+    assert line=='cmd.exe /d /s /c "'+payload+'"'
+    assert '\\"' not in line
+    with pytest.raises(ValueError,match='exactly one'):
+        native_commandline(['cmd.exe','/c','echo','untrusted extra argv'])
+    import subprocess
+    args=['node.exe','entry.js','task with "quotes" & operators']
+    assert native_commandline(args)==subprocess.list2cmdline(args)

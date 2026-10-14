@@ -286,7 +286,8 @@ class NativeProcess:
                 attribute(0x20002,inherited);inherit=True
             env=dict(env);env.pop(SPEC,None);env.pop('FORGE_WINDOWS_ISOLATION_EXPERIMENTAL',None);env.pop('FORGE_CONFIG_HOME',None);env.update(HOME=str(boundary.home),USERPROFILE=str(boundary.home),LOCALAPPDATA=str(boundary.home),APPDATA=str(boundary.home),TEMP=str(boundary.home),TMP=str(boundary.home))
             environment=C.create_unicode_buffer('\0'.join(f'{key}={value}' for key,value in sorted(env.items()))+'\0\0')
-            command=C.create_unicode_buffer(subprocess.list2cmdline(argv));pi=PI()
+            from .platform_support import native_commandline
+            command=C.create_unicode_buffer(native_commandline(argv));pi=PI()
             executable=shutil.which(argv[0],path=env.get('PATH','')) or argv[0]
             if not k.CreateProcessW(executable,command,None,None,inherit,0x80000|0x400|0x4,environment,str(cwd),C.byref(si),C.byref(pi)):raise OSError(C.get_last_error(),'CreateProcessW under native LPAC failed')
             self.process=pi.hProcess;self.pid=pi.dwProcessId;self.handles.extend([pi.hProcess,pi.hThread])
@@ -311,6 +312,10 @@ class NativeProcess:
             done=W.DWORD()
             if not self.k.WriteFile(self.input,data,len(data),C.byref(done),None):raise OSError('Native input pipe closed')
             data=data[done.value:]
+    def close_input(self):
+        handle=self.input
+        if handle in self.handles:
+            self.k.CloseHandle(handle);self.handles.remove(handle)
     def isalive(self):return not self.closed and self.k.WaitForSingleObject(self.process,0)==258
     @property
     def exitstatus(self):
@@ -359,6 +364,7 @@ def main():
             try:
                 while data:=os.read(sys.stdin.fileno(),4096):child.write_bytes(data)
             except OSError:pass
+            finally:child.close_input()
         threads=[threading.Thread(target=output,args=(child.output,sys.stdout.fileno()),daemon=True),threading.Thread(target=output,args=(child.error,sys.stderr.fileno()),daemon=True)]
         for t in threads:t.start()
         threading.Thread(target=input,daemon=True).start()

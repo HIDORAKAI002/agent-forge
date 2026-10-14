@@ -38,3 +38,22 @@ def windows_command(argv,env):
     executable=str(node) if node.is_file() else shutil.which('node.exe') or shutil.which('node')
     if not executable:raise ValueError('Node.js is required for this npm CLI')
     return [executable,str(entry),*argv[1:]],env
+
+def native_commandline(argv):
+    """MSVCRT quoting for programs; preserve one explicitly supplied cmd payload.
+
+    cmd.exe does not interpret MSVCRT's backslash-escaped quotes. Never turn
+    provider argument arrays into shell scripts or join extra payload arguments.
+    """
+    import subprocess
+    if Path(argv[0]).name.lower() != 'cmd.exe':
+        return subprocess.list2cmdline(argv)
+    for index, arg in enumerate(argv[1:], 1):
+        if arg.lower() in ('/c', '/k'):
+            if len(argv) != index + 2:
+                raise ValueError('cmd requires exactly one explicit command payload')
+            prefix = argv[:index]
+            if not any(item.lower() == '/s' for item in prefix):
+                prefix = [*prefix, '/s']
+            return subprocess.list2cmdline([*prefix, arg]) + ' "' + argv[index+1] + '"'
+    return subprocess.list2cmdline(argv)

@@ -37,8 +37,20 @@ def main():
         finally:controls.put({'kind':'stop'})
     def reader():
         try:
+            pending=''
             while True:
                 text=child.read(4096)
+                # A native ConPTY can ask its terminal for a cursor position.
+                # Forge owns the VT endpoint; do not leave cmd waiting forever.
+                if native:
+                    pending+=text
+                    while '\x1b[6n' in pending:
+                        pending=pending.replace('\x1b[6n','',1)
+                        child.write('\x1b[1;1R')
+                    # Retain only a possible split DSR sequence.
+                    tail=next((n for n in (3,2,1) if pending.endswith('\x1b[6n'[:n])),0)
+                    text=pending[:-tail] if tail else pending
+                    pending=pending[-tail:] if tail else ''
                 if text:outputs.put(text)
         except (EOFError,OSError):pass
         finally:outputs.put(None)

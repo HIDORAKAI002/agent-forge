@@ -8,7 +8,7 @@
 - Microphone permission is necessary only for optional dictation. No microphone account or microphone password is needed. Recording must be initiated explicitly.
 - Windows filesystem isolation is independent of terminal support. The native ConPTY backend works; a Job Object cleans up processes but does not restrict filesystem access.
 - Merely choosing a working directory, checking paths in Python, or using a Git worktree does not stop a native child process from reading other folders. A real OS boundary must constrain child and grandchild processes, handles, network, links and runtime access.
-- Production native Windows filesystem enforcement is **not implemented**. Enforced launches must fail closed there; do not turn isolation off as an automatic fallback.
+- A native Windows LPAC implementation is now in an **experimental acceptance build**, not release-enabled. See [native Windows isolation](WINDOWS_ISOLATION.md). Enforced launches must fail closed there; do not turn isolation off as an automatic fallback.
 
 ## Broad upstream Ruflo access
 
@@ -30,3 +30,7 @@ No provider keys, host HOME, SSH agent or ambient cloud credentials are forwarde
 The pinned Node/Ruflo installations must be in read-only system runtime paths or explicitly approved, bounded read-only runtime grants. An absent runtime grant is an error, not permission to run outside isolation. A dependency may require more resources than the current grant policy permits. Read the tool's result: advertising a tool is not a certification that its backend, model, browser or external service is installed or implemented.
 
 The actual pinned runtime advertised 381 tools during inspection. This is **catalog coverage**, not 381 completed end-to-end acceptance tests. Forge does not replace upstream no-op/unsupported implementations. Full production Windows enforcement and certification of every upstream backend remain separate unfinished work.
+
+## Interface workflow
+
+Setup → Ruflo tools offers isolated catalog discovery, name filtering, read-only tool schemas, editable JSON arguments, separate approval and a read-only result viewer. `/ruflo tools` opens this workflow. No upstream result automatically creates or dispatches Forge tasks. Discovery initializes a sandboxed server; calling a tool needs its own explicit approval.
