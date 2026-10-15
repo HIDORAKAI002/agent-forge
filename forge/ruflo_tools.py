@@ -79,6 +79,21 @@ def bounded_result(result):
     return value
 
 
+def payload_reports_failure(payload):
+    """Recognize explicit unsupported backends, not arbitrary prose/results.
+
+    A returned catalog stub is not successful execution. Only top-level protocol
+    fields count: never scan nested user documents or text for error words.
+    """
+    if not isinstance(payload,dict):return False
+    if payload.get('success') is False or payload.get('error'):return True
+    if payload.get('implemented') is False or payload.get('supported') is False:return True
+    status=payload.get('status')
+    if isinstance(status,str) and status.lower().replace('-','_').replace(' ','_') in ('not_implemented','unsupported','unsupported_operation','backend_unavailable'):
+        return True
+    return False
+
+
 class RufloToolSession:
     """One sandboxed server; stateful tools share this server for the whole batch."""
     def __init__(self, project, *, command=None):
@@ -183,12 +198,12 @@ class RufloToolSession:
                 value = bounded_result(raw)
                 failed = raw.isError
                 payload = raw.structuredContent
-                if isinstance(payload, dict) and (payload.get('success') is False or payload.get('error')): failed = True
+                if payload_reports_failure(payload): failed = True
                 for content in raw.content:
                     if getattr(content, 'type', '') != 'text': continue
                     try: payload = json.loads(content.text)
                     except (ValueError, TypeError): continue
-                    if isinstance(payload, dict) and (payload.get('success') is False or payload.get('error')): failed = True
+                    if payload_reports_failure(payload): failed = True
                 status = 'upstream-error' if failed else 'returned'
                 self.audit(digest, tool, status)
                 results.append({'tool': tool, 'failed': failed, 'result': value})

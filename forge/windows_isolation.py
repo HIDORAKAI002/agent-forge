@@ -97,10 +97,19 @@ class Boundary:
         return S.ConvertSecurityDescriptorToStringSecurityDescriptor(sd,1,S.SACL_SECURITY_INFORMATION)
 
     @staticmethod
-    def set_label(handle,text):
+    def set_label(handle,text,control=None):
         import win32security as S
-        sd=S.ConvertStringSecurityDescriptorToSecurityDescriptor(text or 'S:',1)
-        S.SetKernelObjectSecurity(handle,LABEL_INFO,sd)
+        # A SACL-only SDDL descriptor discards the target's inheritance-control
+        # bits. The native LABEL setter can then normalize unrelated DACL ACEs.
+        # Merge the label into the COMPLETE current descriptor and explicitly
+        # preserve inheritance metadata. DACL access grants stay unchanged.
+        current=S.GetSecurityInfo(handle,S.SE_FILE_OBJECT,S.DACL_SECURITY_INFORMATION|LABEL_INFO)
+        original_control=current.GetSecurityDescriptorControl()[0] if control is None else control
+        label=S.ConvertStringSecurityDescriptorToSecurityDescriptor(text or 'S:',1)
+        current.SetSecurityDescriptorSacl(True,label.GetSecurityDescriptorSacl(),False)
+        inheritance=0x2A00  # SACL AUTO_INHERIT_REQ, AUTO_INHERITED, PROTECTED.
+        current.SetSecurityDescriptorControl(inheritance,original_control & inheritance)
+        S.SetKernelObjectSecurity(handle,S.DACL_SECURITY_INFORMATION|LABEL_INFO,current)
 
     @staticmethod
     def grant(handle,sid,mask,denied=0,inherit=False):
@@ -171,7 +180,7 @@ class Boundary:
                 identity=self.identity(h);self.revoke(h,sid)
                 saved=original.get(identity)
                 if is_project:
-                    self.set_label(h,saved['label'] if saved else 'S:(ML;;NW;;;ME)')
+                    self.set_label(h,saved['label'] if saved else 'S:(ML;;NW;;;ME)',saved.get('control') if saved else None)
                 if saved and saved.get('dacl'):
                     # Original security is restored after all processes stop.
                     # Concurrent host-side ACL editing is unsupported.
@@ -241,7 +250,7 @@ class Boundary:
                 dacl=S.ConvertSecurityDescriptorToStringSecurityDescriptor(original,1,S.DACL_SECURITY_INFORMATION)
                 label=S.ConvertSecurityDescriptorToStringSecurityDescriptor(original,1,S.SACL_SECURITY_INFORMATION) if is_project else None
                 with self.handle(p,write=False) as h:
-                    objects.append({'path':str(p),'project':is_project,'identity':self.identity(h),'label':label,'dacl':dacl,'protected':bool(original.GetSecurityDescriptorControl()[0]&0x1000)})
+                    objects.append({'path':str(p),'project':is_project,'identity':self.identity(h),'label':label,'dacl':dacl,'protected':bool(original.GetSecurityDescriptorControl()[0]&0x1000),'control':original.GetSecurityDescriptorControl()[0]})
             sid_pointer=C.c_void_p()
             result=self.userenv.CreateAppContainerProfile(self.name,self.name,'Temporary Agent Forge project boundary',None,0,C.byref(sid_pointer))
             if result<0:raise OSError(result,'CreateAppContainerProfile failed; no unrestricted fallback')

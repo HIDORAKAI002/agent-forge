@@ -178,3 +178,34 @@ async def test_actual_ruflo_ui_gateway(tmp_path,monkeypatch):
             assert result[0]['tool']=='memory_stats' and result[0]['failed'] is False
     finally:
         app.tool_gateway.close();app.ruflo.close();app.ollama.close();app.voice.close();app.planner.close();app.runtime.close()
+
+
+@pytest.mark.parametrize('payload',[
+    {'success':False},{'error':'backend error'},{'implemented':False},
+    {'supported':False},{'status':'not_implemented'},{'status':'Unsupported'},
+    {'status':'backend-unavailable'},
+])
+@pytest.mark.parametrize('transport',['structured','text'])
+async def test_explicit_unsupported_backends_stop_reviewed_batch(tmp_path,monkeypatch,payload,transport):
+    monkeypatch.setenv('FORGE_CONFIG_HOME',str(tmp_path/'trusted'))
+    project=tmp_path/'project';project.mkdir();connection=RufloToolSession(project)
+    connection.policy=connection.sandbox.policy;connection.catalog=CATALOG
+    class Client:
+        def __init__(self):self.calls=[]
+        async def call_tool(self,name,args):
+            self.calls.append(name);reply=Reply()
+            if transport=='structured':reply.structuredContent=payload
+            else:reply.content=[NS(type='text',text=json.dumps(payload))]
+            return reply
+    client=Client();connection.session=client
+    requests=[{'tool':'example','arguments':{'value':'ok'}}]*2
+    _,digest=connection.prepare(requests)
+    results=await connection.execute(requests,digest)
+    assert results[0]['failed'] is True and len(results)==1 and len(client.calls)==1
+
+
+def test_failure_detection_does_not_scan_user_data_or_invent_completion():
+    from forge.ruflo_tools import payload_reports_failure
+    assert not payload_reports_failure({'success':True,'data':{'implemented':False,'status':'not_implemented'}})
+    assert not payload_reports_failure({'text':'The README says not implemented and error.'})
+    assert not payload_reports_failure({'status':'pending'})
