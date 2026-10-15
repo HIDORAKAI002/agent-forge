@@ -10,3 +10,8 @@ __pycache__/
 build/
 dist/
 *.log
+
+# Ephemeral CI outputs; published evidence lives in validation:docs/ci.
+junit.xml
+ci-execution.json
+ci-result.json

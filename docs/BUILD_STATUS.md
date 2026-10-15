@@ -1,66 +1,32 @@
 # Build status and release boundaries
 
-## v0.5 hardening
+Use [current acceptance](CURRENT_ACCEPTANCE.md) for current evidence, source identity and failures. Earlier milestone counts are not current release gates.
 
-- Git metadata is read-only to agent sessions; parent Git worktree/status helpers are boundary-constrained with hooks/fsmonitor disabled. An actual malicious checkout-filter attempt could not write outside the project.
-- Trusted Ruflo state/home/index is stored outside the writable project in per-project user configuration. Host-service executable/runtime entrypoints inside the writable project are refused; project/relative PATH entries are removed.
-- First remote run exposed sandbox host-policy startup and Windows path/shutdown failures. Fixes are submitted for new CI validation; old results are not release acceptance.
+## Implemented
 
-## v0.5 additions
+- Native terminal workstation: real CLI sessions, durable SQLite memory/mail/tasks, worktree dispatch, review gates, eight palettes, local Ollama model management and bounded supervisor planning.
+- Optional local Aider coding, local faster-whisper dictation and supported provider-key setup. No consumer Pro subscription requirement, hidden provider installation, automatic paid-model authorization or automatic merges.
+- Linux/WSL Bubblewrap folder enforcement: one writable project, approved read-only references/runtime trees, private temporary HOME/tmp, separate network permission and unrelated environment-secret filtering. Git control metadata is read-only to agents; parent Git helpers are constrained too.
+- Trusted brokers/launchers use isolated Python startup. Host-side Ruflo state/runtime is outside writable project storage; unsafe project/relative PATH entrypoints are refused.
+- Pinned Ruflo 3.56.9 memory/retrieval/advisory routing bridge, plus separately reviewed sandboxed full-advertised-catalog CLI/Setup gateway. Schemas, arguments, project and permissions bind the exact approval; errors/timeouts do not imply rollback. No second authoritative memory store/scheduler.
+- User-local Bash/PowerShell installers, read-only readiness diagnostics and a repeatable real installed-terminal acceptance script.
+- Source-tagged CI across Linux, native Windows and actual Ruflo. Process completion is required in addition to JUnit counts; native failures stay visible.
 
-- Real pinned Ruflo 3.56.9 MCP bridge: derived memory indexing, SmartRetrieval, canonical record rehydration and advisory routing used as Ollama planning context. Actual MCP indexing/retrieval/routing tested. No upstream agent executor is enabled.
-- Linux/WSL Bubblewrap filesystem enforcement: project writable, approved references read-only, other user paths hidden, network blocked unless explicitly allowed, fail-closed behavior and secret environment filtering. Eight real kernel permission checks passed. Runtime-tree and temporary-space exceptions are documented.
-- Native Windows ConPTY broker, Job Object cleanup, Windows workspace locking, safe standard npm-shim resolution and PowerShell installer added. Four native Windows tests must pass on Windows; Linux skips are not passes.
-- Automated Linux/Windows/Ruflo CI and source-commit-tagged validation records. See [CHECKLIST.md](CHECKLIST.md).
+## Verified in this readiness pass
 
+- 113 Linux regression passes, 13 native/platform skips, zero failures, with real kernel isolation and upstream Ruflo enabled.
+- Actual CPU model generation/planning/embedded CLI/unload and one actual Aider worktree edit, without paid providers.
+- Actual fresh installed launcher, persistent memory, nested-shell file effects and confirmed exit.
 
-## v0.4 implemented
+See [local regression evidence](LOCAL_ACCEPTANCE.json), [Ollama](OLLAMA_VALIDATION.json), [Aider](AIDER_VALIDATION.json), and [installed app](INSTALLED_VALIDATION.json). Functional smoke tests are not coding-quality benchmarks.
 
-- User-local installer with isolated package environment and a temporary `agent-command` launcher; source checkout is not required after installation. Optional voice dependencies use `FORGE_VOICE=1`. Supported bash/zsh profiles get a backed-up managed PATH block; `FORGE_CONFIGURE_PATH=0` disables profile changes. Other shells get manual PATH instructions.
-- Eight saved palettes: Nebula, Ember, Forest, Ocean, Sakura, Solar, Glacier, Graphite.
-- Confirmed in-app official installers for Claude, Codex and Gemini; npm prerequisites are checked and no sudo is added.
-- Masked provider-key setup for Claude, Codex and Gemini. Session-only storage or approved OS keyring backends; no plaintext-file fallback. Keys are scoped to their CLI environment. Codex key authentication is explicitly invoked through a non-echoed pipe with its own keyring setting forced on.
-- Local Ollama supervisor planning: structured 1–8-task DAG, editable draft, explicit queue approval, transparent profile assignment.
-- User-labeled strong/free/economy/local routing. High-risk work prefers strong; routine work prefers local/free. Labels are not performance or price guarantees; provider quotas are intentionally not part of this release.
-- Approved batch dispatch: up to 20 queued tasks per approval, at most two task sessions, prerequisite review gates, command-change revocation, no automatic retry/merge. Pause stops future launches, not running CLIs.
-- Aider-backed local coding profile for the selected Ollama model. Requires the separately installed Aider CLI; normal native confirmations stay enabled, and automatic commits are disabled.
-- Optional faster-whisper CPU/int8 dictation, microphone start/stop, maximum 60 seconds, editable transcript and explicit insertion target. Insertion never presses Enter. Initial speech-model download asks first; later inference uses local weights.
+## Unfinished release gates
 
-## Not completed / not claimed production-ready
+- Native Windows LPAC filesystem enforcement: exact original ACL restoration and isolated interactive console acceptance still fail. Experimental and disabled by default. Standard ConPTY/Job support is not a filesystem boundary. No unrestricted fallback.
+- Wider coding/auth/runtime/cache combinations, optional real microphones/vaults and actual macOS behavior. Local use does not require those optional accounts/devices.
+- Every upstream Ruflo backend being implemented and end-to-end certified. Advertising hundreds of tools is not that certification.
+- Independent security review, wider adversarial escapes and any future enforceable spending/budget system. Existing model routing is advisory.
 
-- Native Windows device/provider combinations beyond the passing 3.11/3.13 native CI suite remain unverified.
-- Native Windows LPAC filesystem isolation exists as an experimental acceptance build, disabled by default while native security/console/runtime gates remain unresolved. macOS enforcement is not implemented. Linux/WSL Bubblewrap is tested; OFF mode remains unrestricted and worktrees alone are not a sandbox.
-- Broad Ruflo catalog access is now available through an explicitly reviewed sandboxed CLI gateway, available through both CLI and the reviewed Setup tool browser, separate from the memory/routing bridge. Not every upstream backend is implemented or certified; no arbitrary credentials or host access are forwarded. Ruflo is not a second authoritative Forge scheduler or memory store.
-- Actual provider CLI account validation, broader Aider coding/sandbox validation, OS keyring/device behavior and microphone device testing remain separate from fixture-based automated tests.
+## Licensing
 
-## Verified evidence
-
-- Real Aider 0.86.2 in Python 3.12.15 + Qwen2.5-Coder 1.5B performed one authorized file edit through Runtime/worktree dispatch. Result stayed needs-review; add(2,3)=5; original unchanged; no automatic commit/merge. Native confirmation policy was not disabled.
-
-- All five CI suites passed source `636c6be`: Linux 76 passed each; native Windows 19 passed each; actual Ruflo one passed. Skips are documented separately.
-- Actual Ollama 0.6.8 + Qwen2.5-Coder 1.5B CPU activation, generation, schema-validated plan, embedded CLI and confirmed unload; no paid provider. Tiny 0.5B invalid plan rejected.
-- The workspace was restored from an older snapshot on continuation; latest code was recovered from GitHub rather than overwriting it. Model evidence was retained from committed session events.
-
-- 64 automated tests on Linux/Python 3.13.
-- Actual isolated installer and standalone `agent-command` outer-PTY/nested-shell smoke test.
-- Actual tiny.en CPU/int8 public-audio transcription and the Forge RAM-buffer-to-editable-draft pipeline. Microphone was not used. PyAV is constrained to `<17` because newer versions failed the file-input test.
-- Fifteen actual Textual UI states inspected individually, including eight themes and compact setup. Planner drafts in screenshots are explicitly labeled fixtures.
-
-## Voice candidates
-
-- [Handy](https://github.com/cjpais/Handy): complete cross-platform offline dictation application; MIT code, separate branding restrictions. Suitable companion app/reference rather than another desktop shell embedded into this TUI.
-- [faster-whisper](https://github.com/SYSTRAN/faster-whisper): MIT Python/CTranslate2 transcription backend used by the optional voice extra. Speech weights/dependencies retain their own licenses.
-- [whisper.cpp](https://github.com/ggml-org/whisper.cpp): MIT native alternative with microphone examples and CPU/GPU backends; not vendored here.
-
-References: [Ruflo](https://github.com/ruvnet/ruflo), [Claude authentication](https://code.claude.com/docs/en/authentication), [Codex authentication](https://developers.openai.com/codex/auth/), [Gemini authentication](https://geminicli.com/docs/get-started/authentication/), [Aider + Ollama](https://aider.chat/docs/llms/ollama.html), [Aider options](https://aider.chat/docs/config/options.html).
-
-## Broader Ruflo gateway and startup hardening
-
-- Pinned runtime catalog discovery, schema validation, exact batch approval bound to tool definitions/arguments/workspace/permissions, redacted review audit, bounded outputs and timeouts. One MCP server per batch; no unrestricted host fallback.
-- Actual `memory_stats`, `workflow_list` and `terminal_execute` used inside the boundary, including successful project write/approved reference read and blocked unapproved access. This is not a pass for all 381 advertised tools.
-- Isolated Python startup for brokers and generated launchers prevents project package/startup-file/PYTHONPATH injection into trusted host processes.
-- Native Windows filesystem enforcement remains unfinished and explicitly fail-closed. API-key use does not require consumer Pro subscriptions; optional OS vaults and microphones are not provider accounts.
-
-## Current acceptance build
-
-Native Windows LPAC code is implemented behind an experimental gate, with real Windows tests submitted. It is not release-enabled while native tests fail or remain incomplete. The first native attempts exposed handle/context API and wrapper-environment issues; fixes are being validated. The broad Ruflo tools workflow now exists inside Setup and has passed actual pinned-runtime UI tests on Linux. See [Windows isolation](WINDOWS_ISOLATION.md) for serialization, runtime and networking limits.
+Original Forge code is MIT. Ruflo, Aider, terminal, speech runtimes and model weights retain their own terms; see [third-party notices](THIRD_PARTY.md). Handy is a design/reference candidate, not bundled application source. Do not treat optional dependencies or model/service access as supplied merely because the interface can invoke them.

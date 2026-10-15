@@ -297,7 +297,7 @@ class CAPS(C.Structure):_fields_=[('AppContainerSid',C.c_void_p),('Capabilities'
 
 
 class NativeProcess:
-    def __init__(self,argv,cwd,env,boundary,*,pty=False,rows=24,cols=90,start=True):
+    def __init__(self,argv,cwd,env,boundary,*,pty=False,rows=24,cols=90):
         import subprocess,win32security as S
         self.k=C.WinDLL('kernel32',use_last_error=True);self.handles=[];self.pseudo=None;self.process=None;self.job=None;self.decoder=codecs.getincrementaldecoder('utf-8')('replace');self.closed=False;self.final_code=None
         k=self.k
@@ -337,36 +337,12 @@ class NativeProcess:
         try:
             attribute(0x20009,caps);attribute(0x2000F,W.DWORD(1)) # LPAC: opt out of ALL APPLICATION PACKAGES.
             if pty:
-                # Create console-side kernel objects with the same restricted
-                # token as their client. A host-token console can reject LPAC
-                # WriteConsole/ReadConsole despite working inherited stdio.
-                # Bootstrap never executes: token exists while its main thread
-                # is suspended, inside a kill-on-close Job, with identical caps.
-                bootstrap=None;token=W.HANDLE();duplicate=W.HANDLE();impersonating=False
-                security=C.WinDLL('advapi32',use_last_error=True)
-                for name,args in {
-                    'OpenProcessToken':[W.HANDLE,W.DWORD,C.POINTER(W.HANDLE)],
-                    'DuplicateTokenEx':[W.HANDLE,W.DWORD,C.c_void_p,C.c_int,C.c_int,C.POINTER(W.HANDLE)],
-                    'ImpersonateLoggedOnUser':[W.HANDLE],
-                    'RevertToSelf':[],
-                }.items():
-                    getattr(security,name).argtypes=args;getattr(security,name).restype=W.BOOL
-                try:
-                    system=Path(env.get('SYSTEMROOT',r'C:\Windows'))/'System32'/'cmd.exe'
-                    bootstrap=NativeProcess([str(system),'/d','/c','exit'],cwd,env,boundary,start=False)
-                    if not security.OpenProcessToken(bootstrap.process,0xA,C.byref(token)):raise C.WinError(C.get_last_error())
-                    if not security.DuplicateTokenEx(token,0x2000000,None,2,2,C.byref(duplicate)):raise C.WinError(C.get_last_error())
-                    if not security.ImpersonateLoggedOnUser(duplicate):raise C.WinError(C.get_last_error())
-                    impersonating=True
-                    pseudo=W.HANDLE();result=k.CreatePseudoConsole(COORD(cols,rows),child_input,child_output,0,C.byref(pseudo))
-                    if result<0:raise OSError(result,'Restricted-token CreatePseudoConsole failed')
-                    self.pseudo=pseudo.value
-                finally:
-                    reverted=not impersonating or bool(security.RevertToSelf())
-                    if duplicate.value:k.CloseHandle(duplicate)
-                    if token.value:k.CloseHandle(token)
-                    if bootstrap:bootstrap.close()
-                    if not reverted:raise OSError('Could not revert restricted console token; refusing to continue')
+                # ConPTY startup remains an explicit native acceptance gate.
+                # Do not impersonate a bootstrap child to work around failed
+                # console access: that experiment did not fix native output.
+                pseudo=W.HANDLE();result=k.CreatePseudoConsole(COORD(cols,rows),child_input,child_output,0,C.byref(pseudo))
+                if result<0:raise OSError(result,'CreatePseudoConsole failed')
+                self.pseudo=pseudo.value
                 # HPCON value is passed directly, NOT a pointer to the handle.
                 if not k.UpdateProcThreadAttribute(si.lpAttributeList,0,0x20016,C.c_void_p(self.pseudo),C.sizeof(W.HANDLE),None,None):raise OSError(C.get_last_error(),'Native pseudo-console attribute failed')
                 inherit=False
@@ -388,7 +364,7 @@ class NativeProcess:
             boundary.write_record()
             from .windows_broker import job_for
             _,self.job=job_for(self.pid)
-            if start and k.ResumeThread(pi.hThread)==0xFFFFFFFF:raise C.WinError(C.get_last_error())
+            if k.ResumeThread(pi.hThread)==0xFFFFFFFF:raise C.WinError(C.get_last_error())
             for h in (child_input,child_output,*([] if pty else [child_error])):
                 k.CloseHandle(h);self.handles.remove(h)
         except BaseException:

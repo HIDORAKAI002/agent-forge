@@ -9,10 +9,12 @@ The new native implementation uses a Less Privileged AppContainer (LPAC), not WS
 - Temporary project ACL entries and low-integrity labels are journaled before modification, restored after the complete Job Object tree exits, and recovered on the next launch after interruption. Linked/reparse/hard-linked grant inputs are refused.
 - Child environment drops unrelated keys and startup hooks. Selected managed provider keys may still be intentionally passed to their corresponding CLI.
 - Networking is blocked by default. Explicit host-network approval uses AppContainer network capabilities; loopback access additionally needs an administrator-approved OS exemption for that unique profile. The backend never disables the firewall or requests automatic elevation.
-- Real isolated ConPTY for interactive CLI sessions; isolated standard I/O for MCP and parent-side helpers.
+- Separate attempted ConPTY and standard-I/O paths. **Isolated ConPTY is not accepted:** output/input still fail on native CI. Standard-I/O access assertions work, but exact permission restoration still fails, so that path is not release-ready either.
 
 Remaining acceptance gates include native test results, post-launch junction/hard-link attempts, descendant cleanup, interruption recovery, standard-user/runtime compatibility, and local Ollama loopback behavior. A failed cleanup retains its journal and does not silently run unrestricted.
 
 ## Acceptance findings
 
 Native CI found that appending denial ACEs after inherited project grants did not protect Git metadata. The implementation now inserts explicit profile denials first using the Windows SDDL parser and avoids automatic inheritance propagation during setup. Original project DACLs are journaled and restored after process-tree termination; do not edit host ACLs concurrently while a boundary is active. Crash recovery checks the recorded child process identity before restoring grants. These changes require native CI readback; they are not a release-enable decision. The isolated interactive ConPTY startup gate is still unresolved.
+
+Current native readback still changes original inherited ACE flags during restoration and fails isolated console output. The recovery journal remains instead of silently declaring success. See [current acceptance](CURRENT_ACCEPTANCE.md); do not enable this backend for valuable user data based on the existence of its implementation.

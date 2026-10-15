@@ -24,3 +24,5 @@ In the interface, `/doctor` displays dependency and setup status without network
 Native Windows terminal support and native filesystem enforcement are separate capabilities. The LPAC backend remains experimental and disabled by default until its actual native filesystem-restoration and console/runtime acceptance gates pass. macOS enforcement is not implemented. A health report never converts those into passing security claims.
 
 Local Ollama requires no consumer Pro subscription or provider account. Cloud models require a compatible key and the provider's required billing/access. Microphone permission is an OS permission, not a cloud account. OS vault storage is optional overall; Codex native key-auth has a separate documented vault requirement.
+
+For actual launcher input and durable effects rather than prerequisite availability alone, use `scripts/validate_install.py` with the installed environment’s Python; see [installation checks](INSTALL_BUNDLE.md). Latest evidence and unresolved release gates are in [current acceptance](CURRENT_ACCEPTANCE.md).

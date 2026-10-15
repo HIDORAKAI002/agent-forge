@@ -66,3 +66,29 @@ async def test_doctor_command_does_not_read_keys_or_probe_network(tmp_path,monke
             assert app.ui('#conversation').display
     finally:
         app.tool_gateway.close();app.ruflo.close();app.ollama.close();app.planner.close();app.voice.close();app.runtime.close()
+
+
+def test_actual_loopback_probe_rejects_redirect_and_oversized_body():
+    import threading
+    from http.server import BaseHTTPRequestHandler,HTTPServer
+    class Handler(BaseHTTPRequestHandler):
+        mode='redirect'
+        hits=[]
+        def log_message(self,*args):pass
+        def do_GET(self):
+            self.hits.append(self.path)
+            if self.mode=='redirect':
+                self.send_response(302);self.send_header('Location','http://127.0.0.1:1/SHOULD_NOT_FOLLOW');self.end_headers()
+            else:
+                self.send_response(200);self.end_headers();self.wfile.write(b' '*65537)
+    server=HTTPServer(('127.0.0.1',0),Handler)
+    thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+    try:
+        url=f'http://127.0.0.1:{server.server_port}'
+        assert probe_ollama(url)['status']=='unavailable'
+        assert Handler.hits==['/api/version']
+        Handler.mode='oversized';Handler.hits=[]
+        assert probe_ollama(url)['status']=='unavailable'
+        assert Handler.hits==['/api/version']
+    finally:
+        server.shutdown();thread.join(2);server.server_close()

@@ -6,11 +6,11 @@
 
 ![Terminal-native workspace](docs/screenshots/01-workspace.svg)
 
-> v0.3 development foundation. Local Ollama model selection, streaming pulls, preload and first-run onboarding are implemented. The interface and local coordination are implemented. Real provider CLI compatibility, voice input, automatic supervisor planning and enforced cost routing are still being built. Screenshots use labeled demo records; the embedded shell is a real local PTY, not a simulated model session.
+> **v0.5 development build.** Local models, real CLI terminals, review-gated planning/worktrees, project memory/mail, optional local dictation, and reviewed upstream Ruflo tools are implemented. Linux/WSL has tested folder enforcement. **Native Windows filesystem enforcement is experimental and not release-ready.** See [current acceptance](docs/CURRENT_ACCEPTANCE.md) and [readiness checks](docs/READINESS.md), rather than treating screenshots or catalog counts as proof. Screenshots may contain explicitly labeled fixtures.
 
 ## Start
 
-Python **3.11+**, Git, and a UTF-8 terminal. **Linux / WSL first**; macOS uses the same POSIX backend but needs real-device validation. Native Windows PTY support is not implemented yet; use WSL.
+Python **3.11+**, Git, and a UTF-8 terminal. Linux/WSL uses POSIX PTYs; native Windows uses ConPTY and the [PowerShell installer](docs/INSTALL_BUNDLE.md), without WSL. macOS terminal/device behavior still needs acceptance testing. Terminal support is not filesystem isolation: Windows enforcement remains disabled by default, and macOS enforcement is unavailable.
 
 ```bash
 git clone https://github.com/HIDORAKAI002/agent-forge.git
@@ -23,11 +23,11 @@ forge --project /path/to/your/project
 
 This repository is private: clone using your existing authorized GitHub login. For development/testing, install `.[mcp,test]` instead. A 120×40 terminal or larger is recommended; 100×36 has a compact layout.
 
-Already inside a project? `forge` uses the current directory. `forge --project /path doctor` prints detected CLI harnesses without opening the TUI. The app does not install or authenticate providers automatically.
+Already inside a project? `forge` uses the current directory. `forge --project /path doctor` prints detected CLI harnesses without opening the TUI. `doctor --full` provides read-only dependency checks; optional `--probe-ollama --require local_coding` checks the local service/model and Aider prerequisites, without generating text or reading keys. `/doctor` is also available inside the app. See [readiness checks](docs/READINESS.md). The app does not install or authenticate providers automatically.
 
 ## The interface
 
-- **Cyan/violet Nebula** and **amber/rose Ember** themes with terminal-native borders, stippled textures, tabbed views, and a bottom command deck.
+- **Eight palettes**, including cyan/violet Nebula and amber/rose Ember, with terminal-native borders, tabbed views, and a bottom command deck.
 - **Agents:** real CLI terminal surfaces; select a session and type directly. `Ctrl+C` reaches the focused CLI.
 - **Missions:** guided task editor, a dependency-aware ledger, isolated Git worktrees, and explicit launch/review confirmations.
 - **Memory:** project facts, decisions, and handoffs with author/time/trust provenance.
@@ -55,7 +55,7 @@ Launches the installed `claude` process inside the TUI. Existing CLI login and p
 
 An agent exit code of zero means **needs-review**, not “correct.” Inspect the worktree diff, run the required checks, and use `/approve TASK_ID` to record human approval. **Approval does not merge work.** Integrate prerequisite changes manually before dependent implementation tasks.
 
-Automated task argument templates currently exist for Claude (`-p`), Codex (`exec`), and Gemini (`-p`). They are version-sensitive and need actual-provider validation. Other built-in CLIs are interactive-only until their automation interface is verified. No permission-bypass flags are added.
+Automated task argument templates currently exist for Claude (`-p`), Codex (`exec`), and Gemini (`-p`). They are version-sensitive and need actual-provider validation. A configured Aider + Ollama coding profile has also passed one bounded real-file smoke test. Other built-in CLIs are interactive-only until their automation interface is verified. No permission-bypass flags are added.
 
 ## Ollama / local operator
 
@@ -110,6 +110,10 @@ Official references: [Linux setup](https://docs.ollama.com/linux), [streamed pul
 | `/ack FULL_MESSAGE_ID RECIPIENT` | Acknowledge handled mail |
 | `/route routine` or `/route high` | Recommend a user-configured tier; never auto-dispatch |
 | `/theme nebula` or `/theme ember` | Change the palette |
+| `/doctor` | Read-only dependency/setup check; no key access or network probe |
+| `/plan` | Local bounded plan proposal; queue/dispatch needs separate review |
+| `/ruflo tools` | Discover, filter and review sandboxed upstream tools in Setup |
+| `/voice` | Optional local dictation; review before inserting, never auto-submit |
 | `/help`, F1 | Open the command deck |
 | F2 / F3 / F4 / F5 | Agents / missions / memory / mail |
 | Ctrl+Space | Return to slash-command input |
@@ -147,7 +151,7 @@ Configure each compatible CLI using its official stdio-MCP settings. Use the **a
 ```json
 {
   "command": "/absolute/path/to/.venv/bin/python",
-  "args": ["-m", "forge", "--project", "/absolute/project/path", "mcp"]
+  "args": ["-I", "-m", "forge", "--project", "/absolute/project/path", "mcp"]
 }
 ```
 
@@ -186,11 +190,11 @@ This is a schema example: `my-worker` must actually exist and implement the argu
 
 ## Safety and compatibility
 
-- **Not an OS sandbox.** Worktrees reduce edit collisions; a CLI can still access anything allowed by its OS account. Native provider approvals remain authoritative.
+- **Isolation is explicit, not implied by a worktree.** With enforcement OFF, CLIs retain their OS account permissions. In Setup, Linux/WSL can enforce one writable project, explicitly approved read-only references, private temporary HOME/tmp and separately approved networking through Bubblewrap. Unsupported hosts fail closed. Native Windows LPAC is experimental and disabled by default; macOS enforcement is unavailable. Native provider approvals remain in force. See [folder isolation](docs/WINDOWS_ISOLATION.md) and [accounts/security](docs/ACCOUNTS_AND_SECURITY.md).
 - No automatic paid-model calls, merges, pushes, provider installation, remote listener or telemetry.
 - Only use trusted projects and CLIs. A custom executable/profile is executable code, not a safe document.
 - Terminal output is rendered through a VT emulator, not written directly into the parent terminal; OSC clipboard/link escape sequences are not executed by the renderer. Full modern terminal protocol coverage is not guaranteed.
-- Cursor movement, truecolor/ANSI styles, resize, UTF-8 input, standard control/navigation keys, bracketed paste and primary/alternate screen handling are implemented. Advanced mouse reporting, Kitty graphics/keyboard extensions, sixel, native ConPTY and advanced scrollback navigation are not implemented.
+- Cursor movement, truecolor/ANSI styles, resize, UTF-8 input, standard control/navigation keys, bracketed paste and primary/alternate screen handling are implemented. Advanced mouse reporting, Kitty graphics/keyboard extensions, sixel and advanced scrollback navigation are not implemented. Native Windows ConPTY is implemented separately from the experimental LPAC boundary.
 - Ctrl+Q, F1–F6 and Ctrl+Space are reserved by the host. They are not passed through to a focused CLI. Avoid putting secrets into command history, tasks, mail, memory or screenshots.
 - A dedicated, single-threaded PTY broker avoids forkpty from the multi-threaded TUI. Stop terminates known descendants and escalates if necessary. Malicious or independently detached processes can escape lifecycle tracking; this is not a security boundary.
 - Memory, tasks and mail persist locally; live terminal sessions do not resume after app restart. Interrupted tasks are marked failed and never rerun automatically. Existing worktrees are preserved for manual inspection.
@@ -205,23 +209,21 @@ python scripts/capture_tui.py
 python scripts/capture_ollama.py
 ```
 
-**v0.3 validation: 44 tests passed on Linux / Python 3.13**, including the original terminal/memory/MCP regressions and Ollama fixtures. Six new actual TUI states were visually inspected, including a compact 100×36 model hub.
+Read [current acceptance](docs/CURRENT_ACCEPTANCE.md) for source-tagged regression counts, actual model/coding runs and unresolved native Windows failures. Skipped native tests are not passing evidence. CI records also require successful process completion, not just a partial JUnit report.
 
 The tests cover persistent memory, concurrent writers, dependencies, mail acknowledgment, project ownership, real Linux PTY input/controlling TTY, resize, cancellation, parallel **fixture** agents in worktrees, alternate screens, explicit routing policy, guided TUI editing, keyboard focus, compact layout, and **two actual stdio MCP clients**.
 
-Ollama tests use a real loopback HTTP fixture server with streamed NDJSON, error/EOF/cancellation cases, persisted activation, auto-resume, remote/cloud rejection and TUI confirmations. No real Ollama model was downloaded or inferred here.
+Ollama tests use a real loopback HTTP fixture server with streamed NDJSON, error/EOF/cancellation cases, persisted activation, auto-resume, remote/cloud rejection and TUI confirmations. These fixture tests are separate from the actual CPU model/coding acceptance described below.
 
-No provider account or real Claude/Codex/Gemini model was used in these tests. Those compatibility checks are the next milestone. `requirements-lock.txt` records the tested environment; the editable project itself is installed separately. The capture script exports nine actual Textual screen states; a local shell is real, while demo memory/task/mail records are explicitly labeled.
+No provider account or real Claude/Codex/Gemini model was used in these tests. Those cloud-provider compatibility checks remain optional, unverified acceptance work; they are not prerequisites for local Ollama. `requirements-lock.txt` records the tested environment; the editable project itself is installed separately. The capture script exports nine actual Textual screen states; a local shell is real, while demo memory/task/mail records are explicitly labeled.
 
-## Next build steps
+## Remaining release gates
 
-1. Validate installed Claude/Codex/Gemini/Kimi versions and permission/resume behavior on real machines.
-2. Add a supervised natural-language planner, acceptance tests, explicit handoff rules and bounded retries — still one authoritative scheduler.
-3. Attach project memory/mail MCP automatically only with consent, preserving existing provider configuration.
-4. Integrate audited Ruflo modules behind the coordinator interface; no competing memory/scheduler authorities.
-5. Add live usage accounting, quota checks and enforceable spending gates before automatic model selection.
-6. Add local voice capture + transcription (audited permissive components inspired by Handy), inserting an editable draft without auto-executing it.
-7. Native Windows ConPTY, protocol coverage/scrollback, accessibility, migrations/backups and packaging.
+1. Resolve and adversarially test native Windows LPAC console access and exact original permission restoration; keep enforcement disabled until those gates pass.
+2. Validate wider coding tasks, each desired cloud CLI/version, optional microphone hardware/vaults, and macOS behavior on their actual platforms.
+3. Independently review the security boundary; tests are meaningful but not an absolute escape-proof guarantee.
+4. Validate upstream Ruflo backends individually where needed. Catalog access does not implement optional models/services or unsupported upstream code.
+5. Add enforceable budgets before any future automatic paid-model selection. Current routing is advisory; no automatic retries, merges or spending authorization.
 
 ## Design references and license
 
@@ -241,7 +243,7 @@ Repeat with an already-installed local model and `ollama` on PATH:
 python scripts/validate_local_model.py --model qwen2.5-coder:1.5b
 ```
 
-All five CI suites passed `636c6be` ([run](https://github.com/HIDORAKAI002/agent-forge/actions/runs/38356388507)). Later commits need their own source-tagged reports.
+Each push runs source-tagged CI. [Current acceptance](docs/CURRENT_ACCEPTANCE.md) records verified evidence and unresolved failures; an old green run is not proof that a later commit passed.
 
 ## Installer bundle and actual coding adapter
 

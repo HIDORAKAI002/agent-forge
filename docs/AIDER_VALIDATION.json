@@ -15,5 +15,7 @@
   "original_project_unchanged": true,
   "automatic_commit_or_merge": false,
   "sandbox_active": false,
-  "scope": "One bounded file smoke test using a configured Aider profile; not a coding benchmark or sandbox compatibility acceptance."
+  "scope": "One bounded file smoke test using a configured Aider profile; not a coding benchmark or sandbox compatibility acceptance.",
+  "tested_base_commit": "408395fbf3e1820967d847904a595ea8fc0d0938",
+  "evidence_note": "New actual local runtime/model test in this readiness pass; not a fixture or restored historical inference."
 }

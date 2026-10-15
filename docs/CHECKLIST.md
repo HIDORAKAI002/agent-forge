@@ -2,7 +2,20 @@
 
 Checked means implemented and supported by the stated evidence, not that every provider/device/security scenario is solved.
 
-## Completed
+## Current readiness pass
+
+- [x] Re-run the actual Linux/kernel/pinned-Ruflo regression: 113 passed, zero failed, 13 platform skips.
+- [x] Re-run actual CPU model generation/planning/CLI/unload and one real Aider worktree coding task without provider accounts or paid API calls.
+- [x] Install and test the real launcher, persistent memory, nested shell, return to composer and confirmed exit.
+- [x] Add read-only dependency/setup diagnostics, optional direct loopback/kernel probes and machine-readable readiness exit gates.
+- [x] Reject interrupted/stale/skipped-only CI evidence; let both native Windows matrix jobs finish independently.
+- [x] Remove stale README platform/milestone claims and document current scope consistently.
+- [ ] Resolve native Windows exact permission restoration and isolated interactive console failures; keep release gate disabled.
+- [ ] Certify desired upstream Ruflo backends, wider coding/runtime combinations and independent security acceptance. Catalog coverage is not backend certification.
+
+[Current evidence and exact remaining blockers](CURRENT_ACCEPTANCE.md). The milestone history below is historical, not proof that a later source commit passed.
+
+## Earlier completed implementation milestones
 
 - [x] Audit Ruflo entrypoints, schemas, license and version; pin 3.56.9.
 - [x] Connect the actual Ruflo stdio MCP service; no provider secrets inherited.
@@ -26,7 +39,7 @@ Checked means implemented and supported by the stated evidence, not that every p
 - [ ] Implement and adversarially test equivalent native Windows folder isolation. ConPTY/Job Objects alone do not restrict filesystem access.
 - [x] Validate actual local Ollama/Qwen2.5-Coder 1.5B CPU activation, generation, bounded planning, embedded CLI and confirmed unload.
 - [x] Validate a real Aider 0.86.2 + Ollama 1.5B coding task through Runtime/worktree dispatch: add(2,3)=5, needs-review, original unchanged, no automatic commit/merge.
-- [ ] Validate real provider accounts, broader Aider coding and sandbox/cache/auth combinations.
+- [ ] Optional cloud-provider acceptance for each desired supported account/CLI; broader Aider coding and sandbox/cache/auth combinations. This is not a prerequisite for local-only use.
 - [ ] Test microphones, OS credential stores and macOS behavior on actual devices.
 - [ ] Independent security review and wider escape tests; current Linux checks are meaningful, not an absolute security guarantee.
 
@@ -66,7 +79,7 @@ The 1.5B model passed the functional smoke test; 0.5B generated invalid dependen
 
 ## Native backend and interface acceptance build
 
-- [x] Implement native Windows LPAC process creation, isolated ConPTY/stdio and transient grants with a recovery journal.
+- [x] Implement the experimental native Windows LPAC process/stdio/grant-recovery code and ConPTY attempt; implementation is not acceptance or release readiness.
 - [ ] Pass native filesystem, cleanup, interruption, network and runtime compatibility acceptance gates before release-enabling the backend. Earlier Windows test failures are failures, not passes.
 - [x] Integrate broad Ruflo discovery, schema inspection, argument editing, approval and result inspection directly into Setup.
 - [x] Test actual pinned Ruflo discovery/approval/execution through the UI; cancellation does not execute a tool.
