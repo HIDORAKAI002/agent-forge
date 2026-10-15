@@ -1,7 +1,7 @@
 {
   "suite": "windows-3.13",
-  "source_commit": "8b45e037843f187e04d155d3f184a109f6f9e01e",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38657870351",
+  "source_commit": "ef21d78288520131f814274c5fe41b49e259e82f",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38665358847",
   "status": "failed",
   "tests": 56,
   "passed": 45,
@@ -11,7 +11,7 @@
     {
       "name": "test_native_direct_conpty_output",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: direct exit=0 alive=False output='\\x1b[?9001h\\x1b[?1004h'; cleanup: ValueError: Native project DACL restoration mismatch (ACE flags [3, 3, 3] -> [19, 19, 19]); recovery journal retained\nassert not [\"direct exit=0 alive=False output='\\\\x1b[?9001h\\\\x1b[?1004h'\", 'cleanup: ValueError: Native project DACL restoration mismatch (ACE flags [3, 3, 3] -> [19, 19, 19]); recovery journal retained']"
+      "message": "AssertionError: direct ran=True exit=0 alive=False output='\\x1b[?9001h\\x1b[?1004h'; cleanup: ValueError: Native project DACL restoration mismatch (ACE flags [3, 3, 3] -> [19, 19, 19]); recovery journal retained\nassert not [\"direct ran=True exit=0 alive=False output='\\\\x1b[?9001h\\\\x1b[?1004h'\", 'cleanup: ValueError: Native project DACL restoration mismatch (ACE flags [3, 3, 3] -> [19, 19, 19]); recovery journal retained']"
     },
     {
       "name": "test_native_stdio_filesystem_and_cleanup",
@@ -35,5 +35,172 @@
     }
   ],
   "execution_completed": true,
-  "pytest_exit_code": 1
+  "pytest_exit_code": 1,
+  "native_acl_probe": {
+    "noop": {
+      "exact": true,
+      "before_flags": [
+        3,
+        3,
+        3
+      ],
+      "after_flags": [
+        3,
+        3,
+        3
+      ],
+      "before_control": 34820,
+      "after_control": 34820
+    },
+    "kernel": {
+      "exact": true,
+      "before_flags": [
+        3,
+        3,
+        3
+      ],
+      "after_flags": [
+        3,
+        3,
+        3
+      ],
+      "before_control": 34820,
+      "after_control": 34820
+    },
+    "file": {
+      "exact": true,
+      "before_flags": [
+        3,
+        3,
+        3
+      ],
+      "after_flags": [
+        3,
+        3,
+        3
+      ],
+      "before_control": 34820,
+      "after_control": 34820
+    },
+    "nt": {
+      "exact": true,
+      "before_flags": [
+        3,
+        3,
+        3
+      ],
+      "after_flags": [
+        3,
+        3,
+        3
+      ],
+      "before_control": 34820,
+      "after_control": 34820
+    },
+    "grant-kernel": {
+      "exact": true,
+      "before_flags": [
+        3,
+        3,
+        3
+      ],
+      "after_flags": [
+        3,
+        3,
+        3
+      ],
+      "before_control": 34820,
+      "after_control": 34820
+    },
+    "grant-file": {
+      "exact": true,
+      "before_flags": [
+        3,
+        3,
+        3
+      ],
+      "after_flags": [
+        3,
+        3,
+        3
+      ],
+      "before_control": 34820,
+      "after_control": 34820
+    },
+    "grant-nt": {
+      "exact": true,
+      "before_flags": [
+        3,
+        3,
+        3
+      ],
+      "after_flags": [
+        3,
+        3,
+        3
+      ],
+      "before_control": 34820,
+      "after_control": 34820
+    },
+    "label-kernel": {
+      "exact": false,
+      "before_flags": [
+        3,
+        3,
+        3
+      ],
+      "after_flags": [
+        19,
+        19,
+        19
+      ],
+      "before_control": 34820,
+      "after_control": 32788
+    },
+    "combined-kernel": {
+      "exact": false,
+      "before_flags": [
+        3,
+        3,
+        3
+      ],
+      "after_flags": [
+        19,
+        19,
+        19
+      ],
+      "before_control": 34820,
+      "after_control": 32788
+    },
+    "combined-file": {
+      "exact": false,
+      "before_flags": [
+        3,
+        3,
+        3
+      ],
+      "after_flags": [
+        19,
+        19,
+        19
+      ],
+      "before_control": 34820,
+      "after_control": 32788
+    },
+    "combined-nt": {
+      "exact": false,
+      "before_flags": [
+        3,
+        3,
+        3
+      ],
+      "after_flags": [
+        19,
+        19,
+        19
+      ],
+      "before_control": 34820,
+      "after_control": 32788
+    }
+  }
 }
