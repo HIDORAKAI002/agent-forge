@@ -1,37 +1,37 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "c4912c9754ff51c0727aa8638fff923b58c098d6",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38665835220",
+  "source_commit": "4a78b6c2f8a19fe866a3f7bfa12a27db236c5c71",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38666276203",
   "status": "failed",
   "tests": 71,
-  "passed": 60,
-  "failed": 7,
+  "passed": 61,
+  "failed": 6,
   "skipped": 4,
   "failed_cases": [
     {
       "name": "test_native_direct_conpty_output",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: direct ran=True exit=0 alive=False output='\\x1b[?9001h\\x1b[?1004h'; cleanup: ValueError: Native project DACL restoration mismatch (ACE flags [3, 3, 3] -> [19, 19, 19]); recovery journal retained\nassert not [\"direct ran=True exit=0 alive=False output='\\\\x1b[?9001h\\\\x1b[?1004h'\", 'cleanup: ValueError: Native project DACL restoration mismatch (ACE flags [3, 3, 3] -> [19, 19, 19]); recovery journal retained']"
+      "message": "AssertionError: process: OSError: Invalid native token information\nassert not ['process: OSError: Invalid native token information']"
     },
     {
       "name": "test_native_stdio_filesystem_and_cleanup",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: ('APPROVEDNATIVE_BOUNDARY_DONE\n  ', 'Access is denied.\n  Access is denied.\n  Access is denied.\n  Native boundary cleanup failed; recovery record retained.\n  ')\nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso...'Access is denied.\\nAccess is denied.\\nAccess is denied.\\nNative boundary cleanup failed; recovery record retained.\\n').returncode"
+      "message": "AssertionError: ('', 'Native boundary failed during process creation: OSError, OS code None, detail Invalid native token information; no unrestricted fallback.\n  ')\nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso... during process creation: OSError, OS code None, detail Invalid native token information; no unrestricted fallback.\\n').returncode"
     },
     {
       "name": "test_native_git_control_readonly",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: Access is denied.\n  Native boundary cleanup failed; recovery record retained.\n  \nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso...turncode=125, stdout='DONE\\n', stderr='Access is denied.\\nNative boundary cleanup failed; recovery record retained.\\n').returncode"
+      "message": "AssertionError: Native boundary failed during process creation: OSError, OS code None, detail Invalid native token information; no unrestricted fallback.\n  \nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso... during process creation: OSError, OS code None, detail Invalid native token information; no unrestricted fallback.\\n').returncode"
     },
     {
       "name": "test_native_isolated_conpty",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: Native isolated terminal did not render: status=running exit=None broker=None screen='                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n"
+      "message": "ValueError: Invalid native token information"
     },
     {
-      "name": "test_native_profile_grant_creation_and_restore",
+      "name": "test_native_broker_interruption_recovers_grants",
       "class": "tests.test_windows_isolation",
-      "message": "ValueError: Native project DACL restoration mismatch (ACE flags [3, 3, 3] -> [19, 19, 19]); recovery journal retained"
+      "message": "AssertionError: Wrapper exited before interruption: (b'', b'Native boundary failed during process creation: OSError, OS code None, detail Invalid native token information; no unrestricted fallback.\\n')"
     }
   ],
   "execution_completed": true,
