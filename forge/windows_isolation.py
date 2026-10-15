@@ -179,7 +179,7 @@ class Boundary:
             with self.handle(p) as h:
                 identity=self.identity(h);self.revoke(h,sid)
                 saved=original.get(identity)
-                if is_project:
+                if is_project and record.get('integrity_mode')!='token-medium':
                     self.set_label(h,saved['label'] if saved else 'S:(ML;;NW;;;ME)',saved.get('control') if saved else None)
                 if saved and saved.get('dacl'):
                     # Original security is restored after all processes stop.
@@ -263,7 +263,7 @@ class Boundary:
             finally:
                 if text_pointer.value:C.WinDLL('kernel32').LocalFree(C.c_void_p(text_pointer.value))
                 advapi.FreeSid(C.c_void_p(sid_pointer.value))
-            self.record={'name':self.name,'sid':S.ConvertSidToStringSid(self.sid),'project':str(self.project),'owner_pid':os.getpid(),'owner_time':psutil.Process().create_time(),'objects':objects}
+            self.record={'integrity_mode':'token-medium','name':self.name,'sid':S.ConvertSidToStringSid(self.sid),'project':str(self.project),'owner_pid':os.getpid(),'owner_time':psutil.Process().create_time(),'objects':objects}
             self.write_record()
             home_pointer=C.c_void_p();result=self.userenv.GetAppContainerFolderPath(self.record['sid'],C.byref(home_pointer))
             if result<0:raise OSError(result,'GetAppContainerFolderPath failed')
@@ -275,7 +275,7 @@ class Boundary:
                     if self.identity(h)!=item['identity']:raise ValueError('Grant object changed during native setup')
                     self.grant(h,self.sid,READ if control or not is_project else MODIFY,
                                WRITE_DENY if control or not is_project else 0xC0000,inherit=is_project and p.is_dir())
-                    if is_project:self.set_label(h,'S:(ML;OICI;NW;;;LW)' if p.is_dir() else 'S:(ML;;NW;;;LW)')
+                    # File integrity labels are NEVER changed for new trees.
             if self.policy['network']:
                 # AppContainer loopback access requires an administrator-approved OS rule.
                 # No automatic elevation, global firewall disabling or silent allowance.
@@ -303,6 +303,45 @@ class SIEX(C.Structure):_fields_=[('StartupInfo',SI),('lpAttributeList',C.c_void
 class PI(C.Structure):_fields_=[('hProcess',W.HANDLE),('hThread',W.HANDLE),('dwProcessId',W.DWORD),('dwThreadId',W.DWORD)]
 class SID_ATTRIBUTES(C.Structure):_fields_=[('Sid',C.c_void_p),('Attributes',W.DWORD)]
 class CAPS(C.Structure):_fields_=[('AppContainerSid',C.c_void_p),('Capabilities',C.POINTER(SID_ATTRIBUTES)),('CapabilityCount',W.DWORD),('Reserved',W.DWORD)]
+
+
+def prepare_lpac_integrity(process,expected_sid):
+    """Use medium MIC without changing the AppContainer/LPAC identity.
+
+    No high-integrity/admin token, privilege addition, user impersonation or
+    unrestricted fallback. Perform while the child is suspended. The LPAC SID
+    ACL check still restricts every filesystem open to reviewed grants.
+    """
+    import win32security as S
+    api=C.WinDLL('advapi32',use_last_error=True);kernel=C.WinDLL('kernel32',use_last_error=True)
+    api.OpenProcessToken.argtypes=[W.HANDLE,W.DWORD,C.POINTER(W.HANDLE)];api.OpenProcessToken.restype=W.BOOL
+    api.GetTokenInformation.argtypes=[W.HANDLE,C.c_int,C.c_void_p,W.DWORD,C.POINTER(W.DWORD)];api.GetTokenInformation.restype=W.BOOL
+    api.SetTokenInformation.argtypes=[W.HANDLE,C.c_int,C.c_void_p,W.DWORD];api.SetTokenInformation.restype=W.BOOL
+    api.EqualSid.argtypes=[C.c_void_p,C.c_void_p];api.EqualSid.restype=W.BOOL
+    kernel.CloseHandle.argtypes=[W.HANDLE];kernel.CloseHandle.restype=W.BOOL
+    token=W.HANDLE()
+    if not api.OpenProcessToken(process,0x88,C.byref(token)):raise C.WinError(C.get_last_error())
+    def query(kind):
+        needed=W.DWORD();api.GetTokenInformation(token,kind,None,0,C.byref(needed))
+        if not 0<needed.value<=65536:raise OSError('Invalid native token information')
+        buffer=C.create_string_buffer(needed.value)
+        if not api.GetTokenInformation(token,kind,buffer,needed,C.byref(needed)):raise C.WinError(C.get_last_error())
+        return buffer
+    def verify():
+        if C.cast(query(29),C.POINTER(W.DWORD))[0]!=1 or C.cast(query(46),C.POINTER(W.DWORD))[0]!=1:
+            raise ValueError('AppContainer/LPAC identity missing; refusing to resume')
+        container=query(31);sid=C.cast(container,C.POINTER(C.c_void_p))[0]
+        expected=C.create_string_buffer(bytes(expected_sid))
+        if not api.EqualSid(sid,expected):raise ValueError('Unexpected AppContainer identity; refusing to resume')
+    try:
+        verify()
+        medium=C.create_string_buffer(bytes(S.ConvertStringSidToSid('S-1-16-8192')))
+        label=SID_ATTRIBUTES(C.cast(medium,C.c_void_p),0x20)
+        if not api.SetTokenInformation(token,25,C.byref(label),C.sizeof(label)+len(medium.raw)-1):raise C.WinError(C.get_last_error())
+        verify()
+        level=query(25);sid=C.cast(level,C.POINTER(SID_ATTRIBUTES))[0].Sid
+        if not api.EqualSid(sid,medium):raise ValueError('Native integrity is not medium; refusing to resume')
+    finally:kernel.CloseHandle(token)
 
 
 class NativeProcess:
@@ -374,6 +413,7 @@ class NativeProcess:
             executable=shutil.which(argv[0],path=env.get('PATH','')) or argv[0]
             if not k.CreateProcessW(executable,command,None,None,inherit,0x80000|0x400|0x4,environment,str(cwd),C.byref(si),C.byref(pi)):raise OSError(C.get_last_error(),'CreateProcessW under native LPAC failed')
             self.process=pi.hProcess;self.pid=pi.dwProcessId;self.handles.extend([pi.hProcess,pi.hThread])
+            prepare_lpac_integrity(self.process,boundary.sid)
             import psutil
             boundary.record['child']={'pid':self.pid,'created':psutil.Process(self.pid).create_time()}
             boundary.write_record()
