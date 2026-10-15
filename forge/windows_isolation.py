@@ -325,7 +325,7 @@ class NativeProcess:
             if not k.CreatePipe(C.byref(r),C.byref(w),None,0):raise C.WinError(C.get_last_error())
             self.handles.extend([r.value,w.value]);return r.value,w.value
         child_input,self.input=pipe();self.output,child_output=pipe();self.error=None
-        si=SIEX();si.StartupInfo.cb=C.sizeof(si);attrs=3 if pty else 3
+        si=SIEX();si.StartupInfo.cb=C.sizeof(si);attrs=4 if pty else 3
         size=C.c_size_t();k.InitializeProcThreadAttributeList(None,attrs,0,C.byref(size));buffer=C.create_string_buffer(size.value);si.lpAttributeList=C.cast(buffer,C.c_void_p)
         if not k.InitializeProcThreadAttributeList(si.lpAttributeList,attrs,0,C.byref(size)):raise C.WinError(C.get_last_error())
         def attribute(number,value):
@@ -345,7 +345,13 @@ class NativeProcess:
                 self.pseudo=pseudo.value
                 # HPCON value is passed directly, NOT a pointer to the handle.
                 if not k.UpdateProcThreadAttribute(si.lpAttributeList,0,0x20016,C.c_void_p(self.pseudo),C.sizeof(W.HANDLE),None,None):raise OSError(C.get_last_error(),'Native pseudo-console attribute failed')
-                inherit=False
+                # Inherit ONLY the two approved console pipes, never arbitrary
+                # host handles. Restricted token console creation must retain
+                # the explicit pipe access used by its pseudo-console.
+                inherited=(W.HANDLE*2)(child_input,child_output)
+                for h in inherited:
+                    if not k.SetHandleInformation(h,1,1):raise C.WinError(C.get_last_error())
+                attribute(0x20002,inherited);inherit=True
             else:
                 self.error,child_error=pipe();si.StartupInfo.dwFlags=0x100;si.StartupInfo.hStdInput=child_input;si.StartupInfo.hStdOutput=child_output;si.StartupInfo.hStdError=child_error
                 inherited=(W.HANDLE*3)(child_input,child_output,child_error)

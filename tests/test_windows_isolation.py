@@ -24,7 +24,7 @@ def test_native_direct_conpty_output(tmp_path,monkeypatch):
     boundary=Boundary(p,s.policy);child=None;output=[];issues=[]
     try:
         boundary.open()
-        child=NativeProcess([os.environ['COMSPEC'],'/d','/c','echo DIRECT_CONPTY_KERNEL_OK'],p,dict(os.environ),boundary,pty=True)
+        child=NativeProcess([os.environ['COMSPEC'],'/d','/c',f'echo RAN>"{p / "direct-ran.txt"}" & echo DIRECT_CONPTY_KERNEL_OK'],p,dict(os.environ),boundary,pty=True)
         def read():
             try:
                 while True:output.append(child.read())
@@ -36,7 +36,7 @@ def test_native_direct_conpty_output(tmp_path,monkeypatch):
             if not child.isalive():thread.join(1);break
             time.sleep(.03)
         if 'DIRECT_CONPTY_KERNEL_OK' not in ''.join(output):
-            issues.append(f'direct exit={child.exitstatus} alive={child.isalive()} output={repr("".join(output))[:400]}')
+            issues.append(f'direct ran={(p / "direct-ran.txt").exists()} exit={child.exitstatus} alive={child.isalive()} output={repr("".join(output))[:400]}')
     except Exception as error:issues.append(f'process: {type(error).__name__}: {str(error)[:150]}')
     finally:
         if child:child.close()

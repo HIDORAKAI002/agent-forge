@@ -29,6 +29,11 @@ def build_report(suite,junit=Path('junit.xml'),execution=Path('ci-execution.json
             result['status']='passed'
     except (OSError,ValueError,TypeError,AttributeError,ET.ParseError):
         result['evidence_error']='Missing or invalid execution/JUnit evidence; not a passing run.'
+    if suite.startswith('windows-'):
+        try:
+            probe=Path('windows-security-probe.json').read_text()
+            if len(probe)<=12000:result['native_acl_probe']=json.loads(probe)
+        except (OSError,ValueError):pass
     return result
 
 
