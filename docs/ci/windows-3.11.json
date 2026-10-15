@@ -1,10 +1,10 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "408395fbf3e1820967d847904a595ea8fc0d0938",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38655729930",
+  "source_commit": "8b45e037843f187e04d155d3f184a109f6f9e01e",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38657870351",
   "status": "failed",
-  "tests": 55,
-  "passed": 44,
+  "tests": 56,
+  "passed": 45,
   "failed": 7,
   "skipped": 4,
   "failed_cases": [
@@ -33,5 +33,7 @@
       "class": "tests.test_windows_isolation",
       "message": "ValueError: Native project DACL restoration mismatch (ACE flags [3, 3, 3] -> [19, 19, 19]); recovery journal retained"
     }
-  ]
+  ],
+  "execution_completed": true,
+  "pytest_exit_code": 1
 }
