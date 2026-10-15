@@ -1,12 +1,12 @@
 {
   "suite": "windows-3.13",
-  "source_commit": "408395fbf3e1820967d847904a595ea8fc0d0938",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38655729930",
+  "source_commit": "8b45e037843f187e04d155d3f184a109f6f9e01e",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38657870351",
   "status": "failed",
-  "tests": 7,
-  "passed": 4,
-  "failed": 3,
-  "skipped": 0,
+  "tests": 56,
+  "passed": 45,
+  "failed": 7,
+  "skipped": 4,
   "failed_cases": [
     {
       "name": "test_native_direct_conpty_output",
@@ -16,12 +16,24 @@
     {
       "name": "test_native_stdio_filesystem_and_cleanup",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: ('APPROVEDNATIVE_BOUNDARY_DONE\n  ', 'Access is denied.\n  Access is denied.\n  Access is denied.\n  Native boundary cleanup failed; recovery record retained.\n  ')\nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.13.16\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_is...'Access is denied.\\nAccess is denied.\\nAccess is denied.\\nNative boundary cleanup failed; recovery record retained.\\n').returncode"
+      "message": "AssertionError: ('APPROVEDNATIVE_BOUNDARY_DONE\n  ', 'Access is denied.\n  Access is denied.\n  Access is denied.\n  Native boundary cleanup failed; recovery record retained.\n  ')\nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.13.15\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_is...'Access is denied.\\nAccess is denied.\\nAccess is denied.\\nNative boundary cleanup failed; recovery record retained.\\n').returncode"
     },
     {
       "name": "test_native_git_control_readonly",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: Access is denied.\n  Native boundary cleanup failed; recovery record retained.\n  \nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.13.16\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_is...turncode=125, stdout='DONE\\n', stderr='Access is denied.\\nNative boundary cleanup failed; recovery record retained.\\n').returncode"
+      "message": "AssertionError: Access is denied.\n  Native boundary cleanup failed; recovery record retained.\n  \nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.13.15\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_is...turncode=125, stdout='DONE\\n', stderr='Access is denied.\\nNative boundary cleanup failed; recovery record retained.\\n').returncode"
+    },
+    {
+      "name": "test_native_isolated_conpty",
+      "class": "tests.test_windows_isolation",
+      "message": "AssertionError: Native isolated terminal did not render: status=running exit=None broker=None screen='                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n                                                                                                    \\n"
+    },
+    {
+      "name": "test_native_profile_grant_creation_and_restore",
+      "class": "tests.test_windows_isolation",
+      "message": "ValueError: Native project DACL restoration mismatch (ACE flags [3, 3, 3] -> [19, 19, 19]); recovery journal retained"
     }
-  ]
+  ],
+  "execution_completed": true,
+  "pytest_exit_code": 1
 }
