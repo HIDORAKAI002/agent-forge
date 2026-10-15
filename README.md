@@ -1,5 +1,7 @@
 # Agent Forge
 
+> **Early access · contributors wanted.** [Help build/test it](CONTRIBUTING.md) · [Launch report and known blockers](docs/LAUNCH_REPORT.md) · [Test guide](docs/TESTING.md) · [Resources & credits](docs/RESOURCES.md). Native Windows folder isolation is unfinished and disabled by default.
+
 ### Your agent workspace. Entirely inside the terminal.
 
 **A full-screen, Claude-Code-style TUI — not Electron, not a browser, and not a pile of detached terminal windows.** Real coding CLIs run inside embedded terminal surfaces, with one shared project store for memory, missions, and agent mail.
@@ -21,7 +23,7 @@ pip install -e '.[mcp]'
 forge --project /path/to/your/project
 ```
 
-This repository is private: clone using your existing authorized GitHub login. For development/testing, install `.[mcp,test]` instead. A 120×40 terminal or larger is recommended; 100×36 has a compact layout.
+For development/testing, install `.[mcp,test]` instead. A 120×40 terminal or larger is recommended; 100×36 has a compact layout.
 
 Already inside a project? `forge` uses the current directory. `forge --project /path doctor` prints detected CLI harnesses without opening the TUI. `doctor --full` provides read-only dependency checks; optional `--probe-ollama --require local_coding` checks the local service/model and Aider prerequisites, without generating text or reading keys. `/doctor` is also available inside the app. See [readiness checks](docs/READINESS.md). The app does not install or authenticate providers automatically.
 

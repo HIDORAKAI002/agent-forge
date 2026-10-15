@@ -1,0 +1,42 @@
+I built an AI agent workstation.
+
+The hardest part wasn’t getting an AI to write code.
+It was making sure it could only change what it was allowed to.
+
+Meet Agent Forge — a local-first, open-source workstation that lives inside your terminal.
+
+The idea: multiple coding agents should feel like a team, not a pile of tabs.
+
+• Native CLI sessions in one workspace
+• Shared project memory, tasks and agent mail
+• Local models through Ollama
+• Assigned Git worktrees and human review before changes land
+• A pinned Ruflo integration with reviewed upstream tool calls
+
+What have I actually tested?
+
+A real local model edited a calculator and README inside the hardened Linux worktree boundary. The originals stayed unchanged. The task stopped at “needs review” — no automatic merge, no paid API call.
+
+Recorded Linux acceptance: 138 passed, 0 failed, 14 platform skips. Evidence and reproduction notes are in the repo.
+
+What isn’t finished?
+
+Native Windows terminals work, but Windows filesystem isolation is NOT release-ready. The experimental tests still fail. And discovering Ruflo’s tool catalog doesn’t mean every backend is certified.
+
+I’d rather publish the gaps than hide them behind a polished demo.
+
+Now I’m opening it up for contributors:
+→ Windows systems developers and testers
+→ Ruflo integration and security reviewers
+→ Python developers, documentation contributors and first-time open-source contributors
+
+You don’t need a Pro subscription to run the baseline tests or a local-model workflow. Cloud API billing, if you choose it, is separate.
+
+Built from India. Open to collaborators everywhere.
+
+Source, setup and contribution guide:
+https://github.com/HIDORAKAI002/agent-forge
+
+What would you want an agent workstation to prove before you trusted it with your code?
+
+#BuildInPublic #OpenSource #AIAgents #Python

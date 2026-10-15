@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Contribution and testing guide
+    url: https://github.com/HIDORAKAI002/agent-forge/blob/main/CONTRIBUTING.md
+    about: Find help-wanted areas, safe test instructions and PR expectations.
+  - name: Security reporting
+    url: https://github.com/HIDORAKAI002/agent-forge/blob/main/SECURITY.md
+    about: Read this before sharing sensitive vulnerability details.
