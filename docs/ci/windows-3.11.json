@@ -1,7 +1,7 @@
 {
   "suite": "windows-3.11",
-  "source_commit": "2e4267550a5709c3971ae113f6cf3f1b9a1af2a0",
-  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38668665369",
+  "source_commit": "cbb073d318ba4e042f37c4506598c17036c07fb1",
+  "run_url": "https://github.com/HIDORAKAI002/agent-forge/actions/runs/38669098415",
   "status": "failed",
   "tests": 73,
   "passed": 61,
@@ -11,27 +11,27 @@
     {
       "name": "test_native_direct_conpty_output",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: process: OSError: [Errno 5] Cannot lower own restricted token integrity\nassert not ['process: OSError: [Errno 5] Cannot lower own restricted token integrity']"
+      "message": "AssertionError: process: ValueError: Native container integrity is not medium; refusing to resume\nassert not ['process: ValueError: Native container integrity is not medium; refusing to resume']"
     },
     {
       "name": "test_native_stdio_filesystem_and_cleanup",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: ('', 'Native boundary failed during process creation: OSError, OS code None, detail [Errno 5] Cannot lower own restricted token integrity; no unrestricted fallback.\n  ')\nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso...ion: OSError, OS code None, detail [Errno 5] Cannot lower own restricted token integrity; no unrestricted fallback.\\n').returncode"
+      "message": "AssertionError: ('', 'Native boundary failed during process creation: ValueError, OS code None, detail Native container integrity is not medium; refusing to resume; no unrestricted fallback.\n  ')\nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso...Error, OS code None, detail Native container integrity is not medium; refusing to resume; no unrestricted fallback.\\n').returncode"
     },
     {
       "name": "test_native_git_control_readonly",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: Native boundary failed during process creation: OSError, OS code None, detail [Errno 5] Cannot lower own restricted token integrity; no unrestricted fallback.\n  \nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso...ion: OSError, OS code None, detail [Errno 5] Cannot lower own restricted token integrity; no unrestricted fallback.\\n').returncode"
+      "message": "AssertionError: Native boundary failed during process creation: ValueError, OS code None, detail Native container integrity is not medium; refusing to resume; no unrestricted fallback.\n  \nassert 125 == 0\n +  where 125 = CompletedProcess(args=['C:\\\\hostedtoolcache\\\\windows\\\\Python\\\\3.11.9\\\\x64\\\\python.exe', '-I', '-m', 'forge.windows_iso...Error, OS code None, detail Native container integrity is not medium; refusing to resume; no unrestricted fallback.\\n').returncode"
     },
     {
       "name": "test_native_isolated_conpty",
       "class": "tests.test_windows_isolation",
-      "message": "ValueError: [Errno 5] Cannot lower own restricted token integrity"
+      "message": "ValueError: Native container integrity is not medium; refusing to resume"
     },
     {
       "name": "test_native_broker_interruption_recovers_grants",
       "class": "tests.test_windows_isolation",
-      "message": "AssertionError: Wrapper exited before interruption: (b'', b'Native boundary failed during process creation: OSError, OS code None, detail [Errno 5] Cannot lower own restricted token integrity; no unrestricted fallback.\\n')"
+      "message": "AssertionError: Wrapper exited before interruption: (b'', b'Native boundary failed during process creation: ValueError, OS code None, detail Native container integrity is not medium; refusing to resume; no unrestricted fallback.\\n')"
     }
   ],
   "execution_completed": true,
