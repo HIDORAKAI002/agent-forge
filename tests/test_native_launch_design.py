@@ -17,3 +17,10 @@ def test_container_integrity_is_verified_not_raised_after_process_creation():
     assert 'attribute(0x2000F,W.DWORD(1))' in source
     assert 'attribute(0x20009,caps)' not in source
     assert source.index('prepare_lpac_integrity(self.process')<source.index('k.ResumeThread(')
+
+
+def test_restricted_parent_token_requests_default_adjustment_before_lowering():
+    source=(Path(__file__).parents[1]/'forge/windows_isolation.py').read_text()
+    assert 'kernel.GetCurrentProcess(),0x008B' in source
+    assert "if level<8192:raise ValueError" in source
+    assert 'if level>8192:' in source

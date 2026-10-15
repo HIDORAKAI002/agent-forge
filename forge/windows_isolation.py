@@ -364,7 +364,7 @@ def primary_container_token(boundary,caps):
     handles=[]
     try:
         parent=W.HANDLE()
-        if not api.OpenProcessToken(kernel.GetCurrentProcess(),0x000B,C.byref(parent)):
+        if not api.OpenProcessToken(kernel.GetCurrentProcess(),0x008B,C.byref(parent)):
             raise OSError(C.get_last_error(),'Cannot open own primary token')
         handles.append(parent)
         # Drop enabled administrative groups and all removable privileges.
@@ -573,7 +573,7 @@ def main():
         exit_code=child.exitstatus
         for t in threads:t.join(2)
     except BaseException as error:
-        message=f'Native boundary failed during {phase}: {type(error).__name__}, OS code {getattr(error, "winerror", getattr(error, "errno", None))}, detail {str(error)[:250]}; no unrestricted fallback.\n'
+        message=f'Native boundary failed during {phase}: {type(error).__name__}, OS code {(getattr(error, "winerror", None) or getattr(error, "errno", None))}, detail {str(error)[:250]}; no unrestricted fallback.\n'
         os.write(sys.stderr.fileno(),message.encode('utf-8'))
     finally:
         if child:child.close()

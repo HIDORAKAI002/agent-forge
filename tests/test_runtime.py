@@ -120,3 +120,66 @@ def test_stop_terminates_a_real_process_group(project):
         wait(runtime, lambda: session.status == "exited")
         assert session.cancelled
     finally: runtime.close()
+
+
+@pytest.mark.parametrize('worker_exit,expected',[(0,'needs-review'),(7,'failed')])
+def test_multifile_verification_preserves_original_and_dependency_gate(project,worker_exit,expected):
+    """Actual process/file/test effects, not an AI-quality or cloud assertion."""
+    config=project/'.agent-forge';config.mkdir()
+    code='''from pathlib import Path
+import subprocess,sys
+Path('arithmetic.py').write_text('def add(a,b): return a+b\\n')
+Path('test_arithmetic.py').write_text('from arithmetic import add\\nassert add(2,3)==5\\n')
+Path('CHANGELOG.md').write_text('Added tested addition\\n')
+checked=subprocess.run([sys.executable,'test_arithmetic.py'])
+assert checked.returncode==0
+print('MULTIFILE_TESTS_PASSED',flush=True)
+'''+f'raise SystemExit({worker_exit})\n'
+    (config/'profiles.json').write_text(json.dumps([{'id':'fixture-multifile','argv':[sys.executable],
+        'task_argv':[sys.executable,'-I','-c',code],'tier':'local'}]))
+    runtime=Runtime(project)
+    try:
+        task=runtime.store.create_task('Multi-file fixture','Write and verify three fixture files','fixture-multifile')
+        dependent=runtime.store.create_task('Dependent','Must not run before review','fixture-multifile',dependencies=[task['id']])
+        session=runtime.run_task(task['id'])
+        wait(runtime,lambda:runtime.store.task(task['id'])['status']==expected)
+        assert session.exit_code==worker_exit
+        assert 'MULTIFILE_TESTS_PASSED' in '\n'.join(session.screen.display)
+        saved=runtime.store.task(task['id']);tree=Path(saved['worktree'])
+        for name in ('arithmetic.py','test_arithmetic.py','CHANGELOG.md'):
+            assert (tree/name).is_file() and not (project/name).exists()
+        with pytest.raises(ValueError,match='human approval'):runtime.run_task(dependent['id'])
+        if worker_exit:
+            with pytest.raises(ValueError,match='awaiting review'):runtime.approve(task['id'])
+    finally:runtime.close()
+    reopened=Runtime(project)
+    try:
+        assert reopened.store.task(task['id'])['status']==expected
+        assert not reopened.sessions
+        assert (tree/'CHANGELOG.md').is_file()
+    finally:reopened.close()
+
+
+def test_cancelled_multifile_task_survives_restart_without_rerun(project):
+    config=project/'.agent-forge';config.mkdir()
+    code="from pathlib import Path; import time; Path('partial-a.txt').write_text('preserve A'); Path('partial-b.txt').write_text('preserve B'); print('CANCEL_READY',flush=True); time.sleep(60); Path('must-not-run.txt').write_text('bad')"
+    (config/'profiles.json').write_text(json.dumps([{'id':'fixture-cancel','argv':[sys.executable],
+        'task_argv':[sys.executable,'-I','-c',code],'tier':'local'}]))
+    runtime=Runtime(project)
+    try:
+        task=runtime.store.create_task('Cancellation fixture','Preserve partial edits','fixture-cancel')
+        session=runtime.run_task(task['id'])
+        wait(runtime,lambda:'CANCEL_READY' in '\n'.join(session.screen.display))
+        tree=Path(runtime.store.task(task['id'])['worktree'])
+        session.stop();wait(runtime,lambda:runtime.store.task(task['id'])['status']=='cancelled')
+        assert (tree/'partial-a.txt').read_text()=='preserve A'
+        assert (tree/'partial-b.txt').read_text()=='preserve B'
+        assert not (tree/'must-not-run.txt').exists()
+    finally:runtime.close()
+    reopened=Runtime(project)
+    try:
+        assert reopened.store.task(task['id'])['status']=='cancelled' and not reopened.sessions
+        with pytest.raises(ValueError,match='new task to retry'):reopened.run_task(task['id'])
+        assert not (tree/'must-not-run.txt').exists()
+        assert not (project/'partial-a.txt').exists() and not (project/'partial-b.txt').exists()
+    finally:reopened.close()
