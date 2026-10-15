@@ -172,24 +172,3 @@ def test_native_lpac_does_not_inherit_all_application_packages_access(tmp_path,m
     result=subprocess.run(argv,cwd=p,env=env,capture_output=True,text=True,timeout=90)
     assert result.returncode==0,(result.stdout,result.stderr)
     assert 'ALL_PACKAGES_MUST_STAY_HIDDEN' not in result.stdout
-
-
-def test_native_child_token_drops_privileges_and_administrators(tmp_path,monkeypatch):
-    import win32api,win32security as S
-    from forge.windows_isolation import Boundary,NativeProcess,token_api,token_integrity
-    p,r,d,s=setup(tmp_path,monkeypatch);boundary=Boundary(p,s.policy);child=None
-    try:
-        boundary.open();child=NativeProcess([os.environ['COMSPEC'],'/d','/c','echo TOKEN_BOUNDARY_OK'],p,dict(os.environ),boundary)
-        token=S.OpenProcessToken(int(child.process),8)
-        own=S.OpenProcessToken(win32api.GetCurrentProcess(),8)
-        try:
-            assert bytes(S.GetTokenInformation(token,1)[0])==bytes(S.GetTokenInformation(own,1)[0])
-            assert token_integrity(token_api(),int(token))=='S-1-16-8192'
-            for privilege,flags in S.GetTokenInformation(token,3):
-                if flags&2:assert S.LookupPrivilegeName(None,privilege)=='SeChangeNotifyPrivilege'
-            for sid,flags in S.GetTokenInformation(token,2):
-                if S.ConvertSidToStringSid(sid)=='S-1-5-32-544':assert flags&16 and not flags&4
-        finally:token.Close();own.Close()
-    finally:
-        if child:child.close()
-        boundary.close()

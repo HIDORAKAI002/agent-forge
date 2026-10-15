@@ -1,11 +1,11 @@
 {
   "kind": "Actual local Linux kernel and locked Ruflo acceptance",
-  "base_commit": "507d827232df96558195304444305267f8b66467",
-  "source_tree_sha256": "946c2d64591e7850fbb2f82944fd750dd74b776265de4e78ffbdc69f368f3434",
+  "base_commit": "cbb073d318ba4e042f37c4506598c17036c07fb1",
+  "source_tree_sha256": "74797122db7704a12b7f731b1bb9e53e198c7cfc2dc2c7f95fa04a2e348b80ea",
   "source_tree_definition": "Sorted relative path + NUL + file bytes + NUL for .py/.sh/.ps1/.yml/.yaml in forge, tests, scripts, .github excluding __pycache__; plus pyproject.toml and integrations/ruflo/package{,-lock}.json; documentation excluded.",
   "python": "3.13.14",
-  "tests": 145,
-  "passed": 131,
+  "tests": 152,
+  "passed": 138,
   "failed": 0,
   "skipped": 14,
   "skipped_cases": [
@@ -27,7 +27,7 @@
   "native_windows_evidence": false,
   "pytest_execution_completed": true,
   "pytest_exit_code": 0,
-  "duration_seconds": 48.59,
+  "duration_seconds": 53.02,
   "ruflo": {
     "version": "3.56.9",
     "clean_npm_ci_replay": "passed; 616 packages installed",
@@ -53,5 +53,13 @@
     "model_agents_started": 0,
     "all_upstream_backends_certified": false
   },
-  "note": "Real Bubblewrap with ambient/inherited capabilities dropped, network blocked, no provider keys or paid calls. Native skips are not passes. Earlier Ollama/Aider/installed-launcher evidence remains separate; not rerun in this pass."
+  "note": "One clean completed final regression. Real Bubblewrap with ambient/inherited capabilities dropped and real locked upstream Ruflo; native Windows skips are not passes. Actual two-file enforced Aider/model coding is separate, source-bound evidence in ENFORCED_CODING_VALIDATION.json. No paid provider calls.",
+  "new_security_checks": [
+    "Actual SQLite/profile/approval/original-project/sibling-worktree/Git-control write denial",
+    "Actual assigned-worktree write allowance",
+    "Pre-existing hardlink alias refusal",
+    "Actual multi-file success, nonzero exit, cancellation and reopen without rerun",
+    "Portable guard against child-integrity modification; NOT native Windows acceptance",
+    "Actual parent Git scope permits only Git metadata and one assigned checkout; SQLite/profiles/original source/siblings remain read-only"
+  ]
 }

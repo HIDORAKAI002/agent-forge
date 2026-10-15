@@ -26,3 +26,14 @@ Native Windows terminal support and native filesystem enforcement are separate c
 Local Ollama requires no consumer Pro subscription or provider account. Cloud models require a compatible key and the provider's required billing/access. Microphone permission is an OS permission, not a cloud account. OS vault storage is optional overall; Codex native key-auth has a separate documented vault requirement.
 
 For actual launcher input and durable effects rather than prerequisite availability alone, use `scripts/validate_install.py` with the installed environment’s Python; see [installation checks](INSTALL_BUNDLE.md). Latest evidence and unresolved release gates are in [current acceptance](CURRENT_ACCEPTANCE.md).
+
+## Real enforced local coding smoke test
+
+With an existing Aider install on PATH and local Ollama/model already available:
+
+```sh
+agent-command --project /path/to/project doctor --full --probe-isolation
+python scripts/validate_local_coding.py --read-only-runtime /absolute/aider/runtime --output local-coding-validation.json
+```
+
+Repeat `--read-only-runtime` for separate Python/runtime prefixes as needed; grant only reviewed runtime directories, not your home. The script creates a disposable Git project, explicitly allows **host networking** for local Ollama, runs a two-file task, checks bounded generated code, preserves native confirmations and never approves/merges results. It does not install providers, download weights, request paid inference or certify coding quality. Enforced agents cannot directly update `.agent-forge`; use terminal handoffs or an explicitly attached trusted host MCP service.

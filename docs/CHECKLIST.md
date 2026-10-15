@@ -4,14 +4,18 @@ Checked means implemented and supported by the stated evidence, not that every p
 
 ## Current readiness pass
 
-- [x] Re-run the actual Linux/kernel/pinned-Ruflo regression: 131 passed, zero failed, 14 platform skips.
+- [x] Re-run the actual Linux/kernel/pinned-Ruflo regression: 138 passed, zero failed, 14 platform skips.
 - [x] Earlier actual CPU model generation/planning/CLI/unload and one real Aider worktree coding task without provider accounts or paid API calls.
 - [x] Earlier installed-launcher test: persistent memory, nested shell, return to composer and confirmed exit.
 - [x] Add read-only dependency/setup diagnostics, optional direct loopback/kernel probes and machine-readable readiness exit gates.
 - [x] Reject interrupted/stale/skipped-only CI evidence; let both native Windows matrix jobs finish independently.
 - [x] Remove stale README platform/milestone claims and document current scope consistently.
 - [x] Diagnose native ACL mutations with disposable API probes; new token-mode boundaries avoid filesystem integrity-label changes. Grant/restore alone passes.
-- [ ] Resolve native Windows token privilege error 1314, then pass isolated console/filesystem/cleanup/recovery acceptance; keep release gate disabled.
+- [x] Native CI ruled out post-creation integrity raising and the precreated-medium-token approach; remove the disproven prototype and token-integrity writes.
+- [ ] Implement and accept a brokered native writable-workspace/console design; keep enforcement disabled.
+- [x] Enforce read-only Linux coordinator state, original project/other worktrees during tasks, and per-task writable assigned worktrees; refuse existing hardlink aliases.
+- [x] Add real multi-file success/failure/cancellation/restart/dependency-review regressions.
+- [x] Run actual two-file local Aider/Ollama coding inside the stricter Linux boundary without paid providers, automatic approval or merge.
 - [x] Lock the complete optional Ruflo npm runtime and replay a clean install; CI uses npm ci.
 - [x] Exercise actual stateful upstream memory/workflow/task/swarm families without provider keys or model execution.
 - [x] Stop reviewed batches on explicit unsupported/not-implemented upstream responses; test both result transports.

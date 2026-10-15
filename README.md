@@ -219,7 +219,7 @@ No provider account or real Claude/Codex/Gemini model was used in these tests. T
 
 ## Remaining release gates
 
-1. Resolve the native Windows LPAC token privilege/startup blocker, then pass isolated console, file-denial and exact restoration/recovery tests; keep enforcement disabled until those gates pass.
+1. Implement and validate the native Windows brokered writable-workspace/console design; token-raising and precreated-medium-token prototypes failed native CI and have been removed. Keep enforcement disabled until real acceptance passes.
 2. Validate wider coding tasks, each desired cloud CLI/version, optional microphone hardware/vaults, and macOS behavior on their actual platforms.
 3. Independently review the security boundary; tests are meaningful but not an absolute escape-proof guarantee.
 4. Validate upstream Ruflo backends individually where needed. Catalog access does not implement optional models/services or unsupported upstream code.
@@ -256,3 +256,5 @@ A real Aider 0.86.2 / Python 3.12.15 + Qwen2.5-Coder 1.5B task was dispatched th
 Local Ollama needs no provider account or Pro subscription. Cloud API keys need compatible adapters and may incur API charges. OS-vault storage and microphone dictation are optional. See [accounts and security](docs/ACCOUNTS_AND_SECURITY.md) for current limitations and the permission-gated `ruflo tools` / `ruflo run` commands. Broad upstream tools require enforced isolation and explicit batch approval; native Windows filesystem enforcement is not yet available.
 
 For a reproducible optional Ruflo installation, use the [locked runtime manifests and setup](docs/RUFLO_RUNTIME.md). CLI-only version pins do not lock transitive dependencies. Actual upstream family acceptance is not certification of every advertised backend.
+
+Linux enforcement also protects coordinator approvals/configuration and sibling worktrees from agent edits. Assigned tasks can write only their own worktree; direct coordinator CLI writes are replaced by output handoffs or an explicitly attached limited host MCP service. Existing hard-linked project files are refused. See [current acceptance](docs/CURRENT_ACCEPTANCE.md) for real two-file enforced local coding evidence and remaining Windows limits.

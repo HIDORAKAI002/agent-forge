@@ -213,3 +213,76 @@ def test_native_commandline_preserves_explicit_shell_quotes():
     import subprocess
     args=['node.exe','entry.js','task with "quotes" & operators']
     assert native_commandline(args)==subprocess.list2cmdline(args)
+
+
+def test_actual_coordinator_state_and_other_worktrees_are_readonly(project,monkeypatch):
+    if os.environ.get('FORGE_SANDBOX_TESTS')!='1':pytest.skip('Actual Bubblewrap required')
+    from forge.runtime import Runtime
+    monkeypatch.setenv('FORGE_CONFIG_HOME',str(project.parent/(project.name+'-state-trusted')))
+    runtime=Runtime(project)
+    try:
+        state=runtime.store.directory;trees=state/'worktrees';assigned=trees/'assigned';other=trees/'other'
+        assigned.mkdir(parents=True);other.mkdir();(other/'code.py').write_text('ORIGINAL')
+        (assigned/'.git').write_text('gitdir: protected fixture')
+        (state/'profiles.json').write_text('[]')
+        grants=[]
+        if not Path(sys.executable).resolve().is_relative_to(Path('/usr')):grants.append(str(Path(sys.base_prefix).resolve()))
+        runtime.sandbox.save({'enabled':True,'network':False,'read_only':grants})
+        code=f'''from pathlib import Path
+state=Path({str(state)!r});assigned=Path({str(assigned)!r});other=Path({str(other)!r})
+for target in [state/'state.sqlite',state/'profiles.json',state/'forged-approval.json',assigned/'.git',other/'code.py',Path({str(project/'README.md')!r})]:
+ try:target.write_text('FORGED')
+ except OSError:pass
+ else:raise AssertionError('Coordinator/other worktree became writable')
+(assigned/'allowed.py').write_text('LOCAL_CODE_OK')
+print('COORDINATOR_STATE_PROTECTED')
+'''
+        argv,env=runtime.sandbox.wrap([str(Path(sys.executable).resolve()),'-c',code],assigned,dict(os.environ))
+        result=subprocess.run(argv,env=env,capture_output=True,text=True,timeout=20)
+        assert result.returncode==0,result.stderr
+        assert 'COORDINATOR_STATE_PROTECTED' in result.stdout
+        assert runtime.store.tasks()==[] and (state/'profiles.json').read_text()=='[]'
+        assert (other/'code.py').read_text()=='ORIGINAL' and (assigned/'allowed.py').read_text()=='LOCAL_CODE_OK'
+        # In an interactive project-root shell there is no assigned tree to
+        # re-open writable, so all nested managed worktrees stay protected.
+        argv,env=runtime.sandbox.wrap(['/bin/sh','-c',f'echo BAD > "{assigned / "allowed.py"}"'],project,dict(os.environ))
+        assert subprocess.run(argv,env=env,capture_output=True,timeout=20).returncode!=0
+    finally:runtime.close()
+
+
+def test_enforced_project_rejects_preexisting_hardlink_alias(project,monkeypatch):
+    if not sys.platform.startswith('linux'):pytest.skip('Linux overlay protection')
+    monkeypatch.setenv('FORGE_CONFIG_HOME',str(project.parent/(project.name+'-hardlink-trusted')))
+    monkeypatch.setattr(shutil,'which',lambda command:'/usr/bin/bwrap' if command=='bwrap' else None)
+    control=project/'.git/config';alias=project/'alias-config'
+    os.link(control,alias)
+    sandbox=Sandbox(project);sandbox.policy={'enabled':True,'network':False,'read_only':[]}
+    with pytest.raises(ValueError,match='hard-linked'):sandbox.wrap(['/bin/true'],project,dict(os.environ))
+
+
+def test_actual_parent_git_scope_cannot_forge_coordinator_or_sibling_work(project,monkeypatch):
+    if os.environ.get('FORGE_SANDBOX_TESTS')!='1':pytest.skip('Actual Bubblewrap required')
+    from forge.runtime import Runtime
+    monkeypatch.setenv('FORGE_CONFIG_HOME',str(project.parent/(project.name+'-git-authority-trusted')))
+    runtime=Runtime(project)
+    try:
+        state=runtime.store.directory;target=state/'worktrees/new';sibling=state/'worktrees/existing'
+        target.mkdir(parents=True);sibling.mkdir();(sibling/'keep.py').write_text('UNCHANGED')
+        (state/'profiles.json').write_text('[]');grants=[]
+        if not Path(sys.executable).resolve().is_relative_to(Path('/usr')):grants.append(str(Path(sys.base_prefix).resolve()))
+        runtime.sandbox.save({'enabled':True,'network':False,'read_only':grants})
+        code=f'''from pathlib import Path
+for raw in {[str(state/'state.sqlite'),str(state/'profiles.json'),str(sibling/'keep.py'),str(project/'README.md')]!r}:
+ try:Path(raw).write_text('FORGED')
+ except OSError:pass
+ else:raise AssertionError('Parent Git scope can corrupt authority/source/sibling')
+Path({str(target/'checkout.txt')!r}).write_text('CHECKOUT_OK')
+Path({str(project/'.git/parent-probe')!r}).write_text('GIT_METADATA_OK')
+'''
+        argv,env=runtime.sandbox.wrap([str(Path(sys.executable).resolve()),'-c',code],project,dict(os.environ),protect_control=False,writable_worktree=target)
+        result=subprocess.run(argv,env=env,capture_output=True,text=True,timeout=20)
+        assert result.returncode==0,result.stderr
+        assert runtime.store.tasks()==[] and (state/'profiles.json').read_text()=='[]'
+        assert (sibling/'keep.py').read_text()=='UNCHANGED'
+        assert (target/'checkout.txt').read_text()=='CHECKOUT_OK'
+    finally:runtime.close()

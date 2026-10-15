@@ -45,7 +45,37 @@ class Sandbox:
         with tmp.open('w') as f:json.dump(policy,f,indent=2)
         if os.name!='nt':tmp.chmod(0o600)
         tmp.replace(self.path);self.policy=policy
-    def wrap(self,argv,cwd,environment,credentials=None,*,protect_control=True):
+    def protected_state(self,cwd):
+        """Host-owned state is not an agent-write API; only assigned trees write."""
+        state=self.project/'.agent-forge'
+        if state.is_symlink():raise ValueError('Linked coordinator state is not supported')
+        worktree=None
+        if state.exists():
+            if not state.is_dir():raise ValueError('Coordinator state must be a directory')
+            trees=state/'worktrees'
+            if trees.is_symlink():raise ValueError('Linked worktree storage is not supported')
+            current=Path(cwd).resolve(strict=True)
+            if current.is_relative_to(trees):
+                relative=current.relative_to(trees)
+                if not relative.parts:raise ValueError('Choose one assigned worktree, not its storage directory')
+                candidate=trees/relative.parts[0]
+                if candidate.is_symlink():raise ValueError('Linked assigned worktree is not supported')
+                worktree=candidate
+        return state,worktree
+
+    def refuse_hardlinked_project_files(self):
+        # A read-only bind is path-based. A pre-existing writable hardlink alias
+        # to Git/state/reference data would otherwise bypass that overlay.
+        count=0
+        for directory,dirs,files in os.walk(self.project,followlinks=False):
+            for name in files:
+                path=Path(directory)/name
+                if path.is_symlink():continue  # Existing external symlinks stay hidden by mounts.
+                count+=1
+                if count>100_000:raise ValueError('Protected project exceeds 100,000 files')
+                if path.stat().st_nlink>1:raise ValueError('Enforced projects refuse hard-linked files; copy the file instead')
+
+    def wrap(self,argv,cwd,environment,credentials=None,*,protect_control=True,writable_worktree=None):
         if not self.policy['enabled']:return argv,environment
         if os.name=='nt':
             from .windows_isolation import SPEC,supported,unlinked
@@ -66,6 +96,15 @@ class Sandbox:
         if self.path.is_relative_to(self.project):raise ValueError('Sandbox permission storage overlaps writable project')
         current=Path(cwd).resolve(strict=True)
         if not current.is_relative_to(self.project):raise ValueError('Sandbox working directory must stay in project')
+        self.refuse_hardlinked_project_files()
+        state,worktree=self.protected_state(current)
+        state.mkdir(mode=0o700,exist_ok=True)
+        git_target=None
+        if writable_worktree is not None:
+            if protect_control:raise ValueError('Writable Git setup scope is parent-only')
+            git_target=Path(writable_worktree).absolute()
+            if git_target.is_symlink() or git_target.parent!=state/'worktrees' or git_target.resolve(strict=True)!=git_target or not git_target.is_dir():
+                raise ValueError('Git setup scope must be one existing managed worktree')
         args=[bwrap,'--die-with-parent','--new-session','--unshare-all','--unshare-user','--cap-drop','ALL']
         if self.policy['network']:args+=['--share-net']
         # These standard runtime trees are read-only, not a bind of the host root.
@@ -80,13 +119,21 @@ class Sandbox:
         for raw in self.policy['read_only']:
             if Path(raw).is_symlink() or str(Path(raw).resolve(strict=True))!=raw:raise ValueError('Read-only grant changed; review and save permissions again')
             args+=['--ro-bind',raw,raw]
-        args+=['--bind',str(self.project),str(self.project)]
+        args+=['--ro-bind' if not protect_control or worktree else '--bind',str(self.project),str(self.project)]
         # Agents may edit source, not Git control files consumed by trusted helpers.
         metadata=self.project/'.git'
         if metadata.is_symlink():raise ValueError('Linked Git metadata is not supported in enforced mode')
         if metadata.exists():
             if not metadata.is_dir():raise ValueError('Enforced projects require in-project Git metadata')
-            if protect_control:args+=['--ro-bind',str(metadata),str(metadata)]
+            args+=['--ro-bind' if protect_control else '--bind',str(metadata),str(metadata)]
+        if state.exists():
+            args+=['--ro-bind',str(state),str(state)]
+            if git_target:args+=['--bind',str(git_target),str(git_target)]
+            if protect_control and worktree:
+                args+=['--bind',str(worktree),str(worktree)]
+                control=worktree/'.git'
+                if control.is_symlink():raise ValueError('Linked worktree Git control is refused')
+                if control.exists():args+=['--ro-bind',str(control),str(control)]
         args+=['--chdir',str(current)]
         # Drop inherited secrets, SSH sockets, startup hooks and arbitrary environment.
         clean={k:environment[k] for k in ('PATH','LANG','LC_ALL','TERM','COLORTERM') if k in environment}

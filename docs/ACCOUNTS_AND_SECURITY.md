@@ -34,3 +34,11 @@ The actual pinned runtime advertised 381 tools during inspection. This is **cata
 ## Interface workflow
 
 Setup → Ruflo tools offers isolated catalog discovery, name filtering, read-only tool schemas, editable JSON arguments, separate approval and a read-only result viewer. `/ruflo tools` opens this workflow. No upstream result automatically creates or dispatches Forge tasks. Discovery initializes a sandboxed server; calling a tool needs its own explicit approval.
+
+## Coordinator authority inside Linux enforcement
+
+Sandboxed agents now see `.agent-forge` as read-only. Task processes can write their assigned worktree, not the original project, approval ledger, profiles or sibling worktrees; the assigned Git control file remains read-only. Project-root interactive shells retain source-file write access but not managed coordinator/worktree write access. Host-side coordinator and constrained Git setup remain responsible for state changes. Direct agent CLI memory writes are therefore unavailable inside enforcement; report handoffs in output or explicitly attach the limited trusted host MCP service. MCP labels are self-reported; that service exposes no approval/launch/merge authority.
+
+Existing hard-linked project files are refused before enforced launch because writable aliases can defeat read-only path overlays. Copy files instead. These are tested Linux defenses, not a universal escape guarantee, concurrent host-edit guarantee or native Windows acceptance.
+
+Constrained parent Git helpers cannot alter coordinator records, original source or sibling worktrees either. Trusted setup creates one empty assigned target first; the helper may write only that target and Git metadata. Actual kernel tests cover this scope, including the same arbitrary-command powers a repository filter would have.

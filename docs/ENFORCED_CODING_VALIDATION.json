@@ -1,0 +1,33 @@
+{
+  "kind": "Actual two-file local Aider coding in Linux Bubblewrap",
+  "model": "qwen2.5-coder:1.5b",
+  "actual_model_inference": true,
+  "authorized_files": [
+    "calculator.py",
+    "README.md"
+  ],
+  "assertions": [
+    "add(2,3)==5",
+    "add(-2,2)==0",
+    "README exact expected text"
+  ],
+  "task_status": "needs-review",
+  "sandbox_active": true,
+  "network": "explicit host-network permission for local Ollama; not domain-only isolation",
+  "original_project_unchanged": true,
+  "model_commits_or_merges": false,
+  "native_confirmations_disabled": false,
+  "paid_provider_calls": 0,
+  "scope": "Bounded local smoke test, not a coding benchmark, cloud acceptance or native Windows evidence.",
+  "relevant_source_sha256": {
+    "forge/sandbox.py": "af4610d034bb6fa54c0b0067bc410ac18164db8ab175c175b61c2af63429f37e",
+    "forge/runtime.py": "c563b29a7fba940d75f91871f5cc0c4f60ed8d04382f18a5ed18b15adb0721ce",
+    "scripts/validate_local_coding.py": "7bed810d69eda7c10bbfd13a92e3f41eca808df5e5b890e990385ca08ff6911e"
+  },
+  "enforcement_scope": "Assigned worktree writable; original project, coordinator state, other worktrees and runtime prefixes read-only; parent Git writes limited to metadata and one assigned checkout; explicitly approved host networking.",
+  "runtime_versions": {
+    "aider": "0.86.2",
+    "ollama": "0.6.8"
+  },
+  "python_agent_runtime": "3.12.15"
+}

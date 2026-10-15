@@ -305,104 +305,39 @@ class SID_ATTRIBUTES(C.Structure):_fields_=[('Sid',C.c_void_p),('Attributes',W.D
 class CAPS(C.Structure):_fields_=[('AppContainerSid',C.c_void_p),('Capabilities',C.POINTER(SID_ATTRIBUTES)),('CapabilityCount',W.DWORD),('Reserved',W.DWORD)]
 
 
-def token_api():
-    api=C.WinDLL('advapi32',use_last_error=True)
-    prototypes={
-        'OpenProcessToken':([W.HANDLE,W.DWORD,C.POINTER(W.HANDLE)],W.BOOL),
-        'GetTokenInformation':([W.HANDLE,C.c_int,C.c_void_p,W.DWORD,C.POINTER(W.DWORD)],W.BOOL),
-        'SetTokenInformation':([W.HANDLE,C.c_int,C.c_void_p,W.DWORD],W.BOOL),
-        'CreateRestrictedToken':([W.HANDLE,W.DWORD,W.DWORD,C.c_void_p,W.DWORD,C.c_void_p,W.DWORD,C.c_void_p,C.POINTER(W.HANDLE)],W.BOOL),
-        'EqualSid':([C.c_void_p,C.c_void_p],W.BOOL),
-        'CreateProcessAsUserW':([W.HANDLE,W.LPCWSTR,W.LPWSTR,C.c_void_p,C.c_void_p,W.BOOL,W.DWORD,C.c_void_p,W.LPCWSTR,C.c_void_p,C.POINTER(PI)],W.BOOL),
-    }
-    for name,(args,result) in prototypes.items():
-        getattr(api,name).argtypes=args;getattr(api,name).restype=result
-    return api
+def prepare_lpac_integrity(process,expected_sid):
+    """Verify only; never raise a lowbox token or mutate filesystem labels.
 
-
-def token_info(api,token,kind):
-    needed=W.DWORD();buffer=C.create_string_buffer(65536)
-    if not api.GetTokenInformation(token,kind,buffer,len(buffer),C.byref(needed)):
-        raise OSError(C.get_last_error(),f'Native token query {kind} failed')
-    if not 0<needed.value<=len(buffer):raise OSError(f'Invalid native token information {kind}')
-    return buffer
-
-
-def token_integrity(api,token):
-    import win32security as S
-    value=token_info(api,token,25)
-    sid=C.cast(value,C.POINTER(SID_ATTRIBUTES))[0].Sid
-    # Copy the SID before its GetTokenInformation buffer goes out of scope.
-    api.GetLengthSid.argtypes=[C.c_void_p];api.GetLengthSid.restype=W.DWORD
-    length=api.GetLengthSid(sid)
-    if not 8<=length<=68:raise ValueError('Invalid native integrity SID')
-    return S.ConvertSidToStringSid(S.SID(C.string_at(sid,length)))
-
-
-def verify_container_token(api,token,expected_sid):
-    if C.cast(token_info(api,token,29),C.POINTER(W.DWORD))[0]!=1:
-        raise ValueError('AppContainer identity missing; refusing to resume')
-    container=token_info(api,token,31);sid=C.cast(container,C.POINTER(C.c_void_p))[0]
-    expected=C.create_string_buffer(bytes(expected_sid))
-    if not api.EqualSid(sid,expected):raise ValueError('Unexpected AppContainer identity; refusing to resume')
-    if token_integrity(api,token)!='S-1-16-8192':
-        raise ValueError('Native container integrity is not medium; refusing to resume')
-
-
-@contextmanager
-def primary_container_token(boundary,caps):
-    """Build a restricted token BEFORE creation; never raise a lowbox token.
-
-    The standard-user CreateProcessAsUser path accepts a restricted version of
-    the caller's own token. No logon credentials, impersonation, SeTcb grant or
-    unrestricted launch fallback. Actual native tests decide support.
+    Native CI disproved both post-creation integrity raising and precreated
+    medium-token approaches. This fail-closed gate remains until a brokered
+    writable-workspace/console design passes real native acceptance.
     """
     import win32security as S
-    api=token_api();kernel=C.WinDLL('kernel32',use_last_error=True)
-    kernel.GetCurrentProcess.restype=W.HANDLE
-    kernel.CloseHandle.argtypes=[W.HANDLE];kernel.CloseHandle.restype=W.BOOL
-    handles=[]
-    try:
-        parent=W.HANDLE()
-        if not api.OpenProcessToken(kernel.GetCurrentProcess(),0x008B,C.byref(parent)):
-            raise OSError(C.get_last_error(),'Cannot open own primary token')
-        handles.append(parent)
-        # Drop enabled administrative groups and all removable privileges.
-        admin=C.create_string_buffer(bytes(S.ConvertStringSidToSid('S-1-5-32-544')))
-        disabled=SID_ATTRIBUTES(C.cast(admin,C.c_void_p),0)
-        restricted=W.HANDLE()
-        if not api.CreateRestrictedToken(parent,1,1,C.byref(disabled),0,None,0,None,C.byref(restricted)):
-            raise OSError(C.get_last_error(),'Cannot create restricted own-user token')
-        handles.append(restricted)
-        current=token_integrity(api,restricted)
-        try:level=int(current.rsplit('-',1)[1])
-        except (ValueError,IndexError):raise ValueError('Invalid native parent integrity') from None
-        if level<8192:raise ValueError('Low-integrity host cannot launch a medium boundary')
-        if level>8192:
-            medium=C.create_string_buffer(bytes(S.ConvertStringSidToSid('S-1-16-8192')))
-            label=SID_ATTRIBUTES(C.cast(medium,C.c_void_p),0x20)
-            if not api.SetTokenInformation(restricted,25,C.byref(label),C.sizeof(label)+len(medium.raw)-1):
-                raise OSError(C.get_last_error(),'Cannot lower own restricted token integrity')
-        factory=C.WinDLL('kernelbase',use_last_error=True)
-        create=getattr(factory,'CreateAppContainerToken',None)
-        if create is None:raise ValueError('CreateAppContainerToken is unavailable on this Windows build')
-        create.argtypes=[W.HANDLE,C.POINTER(CAPS),C.POINTER(W.HANDLE)];create.restype=W.BOOL
-        container=W.HANDLE()
-        if not create(restricted,C.byref(caps),C.byref(container)):
-            raise OSError(C.get_last_error(),'Cannot create own-user container token')
-        handles.append(container);verify_container_token(api,container,boundary.sid)
-        yield api,container
-    finally:
-        for handle in reversed(handles):kernel.CloseHandle(handle)
-
-
-def prepare_lpac_integrity(process,expected_sid):
-    """Verify suspended child identity/integrity; never alter its token."""
-    api=token_api();kernel=C.WinDLL('kernel32',use_last_error=True)
+    api=C.WinDLL('advapi32',use_last_error=True);kernel=C.WinDLL('kernel32',use_last_error=True)
+    api.OpenProcessToken.argtypes=[W.HANDLE,W.DWORD,C.POINTER(W.HANDLE)];api.OpenProcessToken.restype=W.BOOL
+    api.GetTokenInformation.argtypes=[W.HANDLE,C.c_int,C.c_void_p,W.DWORD,C.POINTER(W.DWORD)];api.GetTokenInformation.restype=W.BOOL
+    api.EqualSid.argtypes=[C.c_void_p,C.c_void_p];api.EqualSid.restype=W.BOOL
     kernel.CloseHandle.argtypes=[W.HANDLE];kernel.CloseHandle.restype=W.BOOL
     token=W.HANDLE()
     if not api.OpenProcessToken(process,0x8,C.byref(token)):raise C.WinError(C.get_last_error())
-    try:verify_container_token(api,token,expected_sid)
+    def query(kind):
+        needed=W.DWORD();buffer=C.create_string_buffer(65536)
+        if not api.GetTokenInformation(token,kind,buffer,len(buffer),C.byref(needed)):
+            raise OSError(C.get_last_error(),f'Native token query {kind} failed')
+        if not 0<needed.value<=len(buffer):raise OSError(f'Invalid native token information {kind}')
+        return buffer
+    def verify():
+        if C.cast(query(29),C.POINTER(W.DWORD))[0]!=1:
+            raise ValueError('AppContainer identity missing; refusing to resume')
+        container=query(31);sid=C.cast(container,C.POINTER(C.c_void_p))[0]
+        expected=C.create_string_buffer(bytes(expected_sid))
+        if not api.EqualSid(sid,expected):raise ValueError('Unexpected AppContainer identity; refusing to resume')
+    try:
+        verify()
+        medium=C.create_string_buffer(bytes(S.ConvertStringSidToSid('S-1-16-8192')))
+        level=query(25);sid=C.cast(level,C.POINTER(SID_ATTRIBUTES))[0].Sid
+        if not api.EqualSid(sid,medium):
+            raise ValueError('Native AppContainer is not medium-integrity; a brokered writable workspace is required. Integrity raising and unrestricted fallback are refused')
     finally:kernel.CloseHandle(token)
 
 
@@ -435,7 +370,7 @@ class NativeProcess:
             if not k.CreatePipe(C.byref(r),C.byref(w),None,0):raise C.WinError(C.get_last_error())
             self.handles.extend([r.value,w.value]);return r.value,w.value
         child_input,self.input=pipe();self.output,child_output=pipe();self.error=None
-        si=SIEX();si.StartupInfo.cb=C.sizeof(si);attrs=3 if pty else 2
+        si=SIEX();si.StartupInfo.cb=C.sizeof(si);attrs=4 if pty else 3
         size=C.c_size_t();k.InitializeProcThreadAttributeList(None,attrs,0,C.byref(size));buffer=C.create_string_buffer(size.value);si.lpAttributeList=C.cast(buffer,C.c_void_p)
         if not k.InitializeProcThreadAttributeList(si.lpAttributeList,attrs,0,C.byref(size)):raise C.WinError(C.get_last_error())
         def attribute(number,value):
@@ -445,9 +380,7 @@ class NativeProcess:
             cap_sid_buffers=[C.create_string_buffer(bytes(S.ConvertStringSidToSid(sid))) for sid in ('S-1-15-3-1','S-1-15-3-3')]
             cap_array=(SID_ATTRIBUTES*2)(*[SID_ATTRIBUTES(C.cast(buf,C.c_void_p),4) for buf in cap_sid_buffers]);caps.Capabilities=cap_array;caps.CapabilityCount=2
         try:
-            attribute(0x2000F,W.DWORD(1)) # LPAC: opt out of ALL APPLICATION PACKAGES.
-            # SECURITY_CAPABILITIES is already applied to the primary token.
-            # Reapplying it at CreateProcess would lower integrity again.
+            attribute(0x20009,caps);attribute(0x2000F,W.DWORD(1)) # LPAC: opt out of ALL APPLICATION PACKAGES.
             if pty:
                 # ConPTY startup remains an explicit native acceptance gate.
                 # Do not impersonate a bootstrap child to work around failed
@@ -475,9 +408,7 @@ class NativeProcess:
             from .platform_support import native_commandline
             command=C.create_unicode_buffer(native_commandline(argv));pi=PI()
             executable=shutil.which(argv[0],path=env.get('PATH','')) or argv[0]
-            with primary_container_token(boundary,caps) as (api,token):
-                if not api.CreateProcessAsUserW(token,executable,command,None,None,inherit,0x80000|0x400|0x4,environment,str(cwd),C.byref(si),C.byref(pi)):
-                    raise OSError(C.get_last_error(),'Restricted own-user LPAC creation failed; no credential/elevation fallback')
+            if not k.CreateProcessW(executable,command,None,None,inherit,0x80000|0x400|0x4,environment,str(cwd),C.byref(si),C.byref(pi)):raise OSError(C.get_last_error(),'CreateProcessW under native LPAC failed')
             self.process=pi.hProcess;self.pid=pi.dwProcessId;self.handles.extend([pi.hProcess,pi.hThread])
             prepare_lpac_integrity(self.process,boundary.sid)
             import psutil

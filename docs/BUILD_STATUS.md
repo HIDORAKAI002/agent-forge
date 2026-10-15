@@ -15,15 +15,18 @@ Use [current acceptance](CURRENT_ACCEPTANCE.md) for current evidence, source ide
 
 ## Verified in this readiness pass
 
-- 131 Linux regression passes, 14 native/platform skips, zero failures, with real kernel isolation and upstream Ruflo enabled.
+- 138 Linux regression passes, 14 native/platform skips, zero failures, with real kernel isolation and upstream Ruflo enabled.
 - Earlier actual CPU model generation/planning/embedded CLI/unload and one actual Aider worktree edit, without paid providers.
 - Earlier actual fresh installed launcher, persistent memory, nested-shell file effects and confirmed exit.
 
 See [local regression evidence](LOCAL_ACCEPTANCE.json), [Ollama](OLLAMA_VALIDATION.json), [Aider](AIDER_VALIDATION.json), and [installed app](INSTALLED_VALIDATION.json). Functional smoke tests are not coding-quality benchmarks.
 
+- Additional Linux hardening protects coordinator/approval state and other worktrees from sandboxed agent writes, rejects existing hardlink aliases and limits tasks to their assigned writable worktree.
+- New real process regressions cover multi-file failure/cancellation/restart. Actual two-file Aider/Ollama coding also passed inside that stricter boundary; see [evidence](ENFORCED_CODING_VALIDATION.json).
+
 ## Unfinished release gates
 
-- Native Windows LPAC filesystem enforcement: the new no-filesystem-label-mutation approach fails process startup with required token privilege error 1314. Grant/restore alone passes, but isolated console/process/recovery acceptance remains unproven; earlier label-based attempts failed exact restoration and console output. Experimental and disabled by default. Standard ConPTY/Job support is not a filesystem boundary. No unrestricted fallback.
+- Native Windows LPAC filesystem enforcement needs a brokered writable-workspace/console design. Actual CI disproved both token-raising and precreated-medium-token approaches; neither is shipped as a working fix. Read-only pre-resume checks fail closed, and the backend stays experimental/disabled. Standard ConPTY is not a filesystem boundary.
 - Wider coding/auth/runtime/cache combinations, optional real microphones/vaults and actual macOS behavior. Local use does not require those optional accounts/devices.
 - Every upstream Ruflo backend being implemented and end-to-end certified. Advertising hundreds of tools is not that certification.
 - Independent security review, wider adversarial escapes and any future enforceable spending/budget system. Existing model routing is advisory.
