@@ -322,14 +322,14 @@ def prepare_lpac_integrity(process,expected_sid):
     token=W.HANDLE()
     if not api.OpenProcessToken(process,0x88,C.byref(token)):raise C.WinError(C.get_last_error())
     def query(kind):
-        needed=W.DWORD();api.GetTokenInformation(token,kind,None,0,C.byref(needed))
-        if not 0<needed.value<=65536:raise OSError('Invalid native token information')
-        buffer=C.create_string_buffer(needed.value)
-        if not api.GetTokenInformation(token,kind,buffer,needed,C.byref(needed)):raise C.WinError(C.get_last_error())
+        needed=W.DWORD();buffer=C.create_string_buffer(65536)
+        if not api.GetTokenInformation(token,kind,buffer,len(buffer),C.byref(needed)):
+            raise OSError(C.get_last_error(),f'Native token query {kind} failed')
+        if not 0<needed.value<=len(buffer):raise OSError(f'Invalid native token information {kind}')
         return buffer
     def verify():
-        if C.cast(query(29),C.POINTER(W.DWORD))[0]!=1 or C.cast(query(46),C.POINTER(W.DWORD))[0]!=1:
-            raise ValueError('AppContainer/LPAC identity missing; refusing to resume')
+        if C.cast(query(29),C.POINTER(W.DWORD))[0]!=1:
+            raise ValueError('AppContainer identity missing; refusing to resume')
         container=query(31);sid=C.cast(container,C.POINTER(C.c_void_p))[0]
         expected=C.create_string_buffer(bytes(expected_sid))
         if not api.EqualSid(sid,expected):raise ValueError('Unexpected AppContainer identity; refusing to resume')

@@ -157,3 +157,18 @@ def test_native_postlaunch_junction_cannot_grant_external_access(tmp_path,monkey
     assert 'HIDDEN' not in result.stdout and not (d/'outside.txt').exists()
     assert (d/'secret.txt').read_text()=='HIDDEN'
     assert not list((tmp_path/'trusted-config/windows-boundary').glob('AgentForge.*.json'))
+
+
+def test_native_lpac_does_not_inherit_all_application_packages_access(tmp_path,monkeypatch):
+    """Medium MIC must not widen the LPAC all-packages opt-out boundary."""
+    import win32security as S
+    p,r,d,s=setup(tmp_path,monkeypatch)
+    marker=d/'all-packages.txt';marker.write_text('ALL_PACKAGES_MUST_STAY_HIDDEN')
+    package=S.ConvertStringSidToSid('S-1-15-2-1')
+    from forge.windows_isolation import Boundary,READ
+    for item in (d,marker):
+        with Boundary.handle(item) as handle:Boundary.grant(handle,package,READ,inherit=item.is_dir())
+    argv,env=s.wrap([os.environ['COMSPEC'],'/d','/c',f'type "{marker}" & echo DONE'],p,dict(os.environ))
+    result=subprocess.run(argv,cwd=p,env=env,capture_output=True,text=True,timeout=90)
+    assert result.returncode==0,(result.stdout,result.stderr)
+    assert 'ALL_PACKAGES_MUST_STAY_HIDDEN' not in result.stdout
