@@ -1,13 +1,13 @@
 {
-  "kind": "Actual local Linux kernel and pinned-Ruflo acceptance",
-  "base_commit": "408395fbf3e1820967d847904a595ea8fc0d0938",
-  "source_tree_sha256": "a70390b9d7bc9ce8efc1f2a72120e33d4189b44d16e5635b4990e8ea316886cc",
-  "source_tree_definition": "Sorted relative path + NUL + file bytes + NUL for .py/.sh/.ps1/.yml/.yaml in forge, tests, scripts, .github (excluding __pycache__), plus pyproject.toml; documentation excluded.",
+  "kind": "Actual local Linux kernel and locked Ruflo acceptance",
+  "base_commit": "507d827232df96558195304444305267f8b66467",
+  "source_tree_sha256": "946c2d64591e7850fbb2f82944fd750dd74b776265de4e78ffbdc69f368f3434",
+  "source_tree_definition": "Sorted relative path + NUL + file bytes + NUL for .py/.sh/.ps1/.yml/.yaml in forge, tests, scripts, .github excluding __pycache__; plus pyproject.toml and integrations/ruflo/package{,-lock}.json; documentation excluded.",
   "python": "3.13.14",
-  "tests": 126,
-  "passed": 113,
+  "tests": 145,
+  "passed": 131,
   "failed": 0,
-  "skipped": 13,
+  "skipped": 14,
   "skipped_cases": [
     "test_windows_enforcement_unavailable_dependency_fails_closed",
     "test_native_conpty_input_resize_and_exit",
@@ -21,17 +21,37 @@
     "test_native_reparse_and_hardlink_inputs_refused",
     "test_native_profile_grant_creation_and_restore",
     "test_native_broker_interruption_recovers_grants",
-    "test_native_postlaunch_junction_cannot_grant_external_access"
+    "test_native_postlaunch_junction_cannot_grant_external_access",
+    "test_native_lpac_does_not_inherit_all_application_packages_access"
   ],
   "native_windows_evidence": false,
-  "opt_in_real_checks": [
-    "Bubblewrap project/reference and escape checks",
-    "Pinned Ruflo 3.56.9 actual memory/routing bridge",
-    "Actual upstream catalog and reviewed command execution",
-    "Actual upstream UI discovery/approval/execution"
-  ],
-  "note": "Inherited/ambient host capabilities were dropped for real kernel tests; host security was not disabled. Native Windows skips are not passes. Model/coding/installed-launcher evidence is separate.",
   "pytest_execution_completed": true,
   "pytest_exit_code": 0,
-  "ci_wrapper_and_reporter_tested": true
+  "duration_seconds": 48.59,
+  "ruflo": {
+    "version": "3.56.9",
+    "clean_npm_ci_replay": "passed; 616 packages installed",
+    "lock_sha256": "b7e4f2103f05785737a1a490db2cd4fdd29e92d9e16e04ff9eaeed9c01efab31",
+    "actual_stateful_tools": [
+      "memory_store",
+      "memory_retrieve",
+      "memory_list",
+      "memory_delete",
+      "workflow_create",
+      "workflow_list",
+      "task_create",
+      "task_list",
+      "swarm_init",
+      "swarm_status",
+      "agent_list"
+    ],
+    "other_actual_checks": [
+      "memory/retrieval/advisory routing bridge",
+      "catalog discovery and reviewed terminal file effects with real kernel denial",
+      "Setup UI discovery/approval/execution"
+    ],
+    "model_agents_started": 0,
+    "all_upstream_backends_certified": false
+  },
+  "note": "Real Bubblewrap with ambient/inherited capabilities dropped, network blocked, no provider keys or paid calls. Native skips are not passes. Earlier Ollama/Aider/installed-launcher evidence remains separate; not rerun in this pass."
 }

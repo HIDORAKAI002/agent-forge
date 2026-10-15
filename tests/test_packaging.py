@@ -18,3 +18,11 @@ def test_source_bundle_refuses_nested_links(tmp_path,monkeypatch,bundler):
     try:(directory/'runtime.py').symlink_to(tmp_path/'outside')
     except OSError:pytest.skip('This host has no symlink privilege')
     with pytest.raises(ValueError,match='linked'):bundler.collect()
+
+
+def test_source_bundle_includes_only_reviewed_ruflo_lockfiles(tmp_path,monkeypatch,bundler):
+    monkeypatch.setattr(bundler,'ROOT',tmp_path)
+    for name in ('package.json','package-lock.json','README.md','credentials.json','node_modules/runtime/package.json','nested/package.json'):
+        path=tmp_path/'integrations/ruflo'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('{}')
+    assert {str(p.relative_to(tmp_path)) for p in bundler.collect()}=={
+        'integrations/ruflo/package.json','integrations/ruflo/package-lock.json','integrations/ruflo/README.md'}

@@ -4,13 +4,17 @@ Checked means implemented and supported by the stated evidence, not that every p
 
 ## Current readiness pass
 
-- [x] Re-run the actual Linux/kernel/pinned-Ruflo regression: 113 passed, zero failed, 13 platform skips.
-- [x] Re-run actual CPU model generation/planning/CLI/unload and one real Aider worktree coding task without provider accounts or paid API calls.
-- [x] Install and test the real launcher, persistent memory, nested shell, return to composer and confirmed exit.
+- [x] Re-run the actual Linux/kernel/pinned-Ruflo regression: 131 passed, zero failed, 14 platform skips.
+- [x] Earlier actual CPU model generation/planning/CLI/unload and one real Aider worktree coding task without provider accounts or paid API calls.
+- [x] Earlier installed-launcher test: persistent memory, nested shell, return to composer and confirmed exit.
 - [x] Add read-only dependency/setup diagnostics, optional direct loopback/kernel probes and machine-readable readiness exit gates.
 - [x] Reject interrupted/stale/skipped-only CI evidence; let both native Windows matrix jobs finish independently.
 - [x] Remove stale README platform/milestone claims and document current scope consistently.
-- [ ] Resolve native Windows exact permission restoration and isolated interactive console failures; keep release gate disabled.
+- [x] Diagnose native ACL mutations with disposable API probes; new token-mode boundaries avoid filesystem integrity-label changes. Grant/restore alone passes.
+- [ ] Resolve native Windows token privilege error 1314, then pass isolated console/filesystem/cleanup/recovery acceptance; keep release gate disabled.
+- [x] Lock the complete optional Ruflo npm runtime and replay a clean install; CI uses npm ci.
+- [x] Exercise actual stateful upstream memory/workflow/task/swarm families without provider keys or model execution.
+- [x] Stop reviewed batches on explicit unsupported/not-implemented upstream responses; test both result transports.
 - [ ] Certify desired upstream Ruflo backends, wider coding/runtime combinations and independent security acceptance. Catalog coverage is not backend certification.
 
 [Current evidence and exact remaining blockers](CURRENT_ACCEPTANCE.md). The milestone history below is historical, not proof that a later source commit passed.
@@ -69,7 +73,7 @@ The 1.5B model passed the functional smoke test; 0.5B generated invalid dependen
 
 ## Broader Ruflo follow-up
 
-- [x] Inspect the pinned runtime's complete advertised MCP catalog (381 tools observed).
+- [x] Inspect the pinned runtime's complete advertised MCP catalog (381 tools historically; 358 observed in the current runtime; neither count certifies backends).
 - [x] Add an explicit full-catalog gateway requiring enforced project isolation, no ambient keys and exact batch-review digest.
 - [x] Bind approval to arguments, tool definitions, project and permissions; validate every request before executing any.
 - [x] Keep upstream errors and timeouts visible; do not imply rollback or full backend implementation.

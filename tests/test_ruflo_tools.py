@@ -112,6 +112,35 @@ print('REAL_RUFLO_BOUNDARY_OK')
         assert (project/'upstream-wrote.txt').read_text()=='ok'
         assert not (denied/'outside.txt').exists() and not (reference/'blocked.txt').exists()
 
+        # Real stateful families, not just a catalog or success flag. These
+        # remain in the disposable upstream namespace, never Forge dispatch.
+        family=[
+            ('memory_store',{'key':'acceptance','value':'LOCAL_RUFLO_ROUNDTRIP_OK','namespace':'forge-acceptance'}),
+            ('memory_retrieve',{'key':'acceptance','namespace':'forge-acceptance'}),
+            ('memory_list',{'namespace':'forge-acceptance','limit':5}),
+            ('memory_delete',{'key':'acceptance','namespace':'forge-acceptance'}),
+            ('memory_list',{'namespace':'forge-acceptance','limit':5}),
+            ('workflow_create',{'name':'forge-acceptance-flow','steps':[]}),
+            ('workflow_list',{}),
+            ('task_create',{'type':'research','description':'FORGE_ACCEPTANCE_TASK_NO_PROVIDER','priority':'low'}),
+            ('task_list',{'limit':5}),
+            ('swarm_init',{'topology':'hierarchical','maxAgents':1,'strategy':'balanced'}),
+            ('swarm_status',{}),('agent_list',{}),
+        ]
+        requests=[{'tool':name,'arguments':args} for name,args in family]
+        _,digest=connection.prepare(requests);results=await connection.execute(requests,digest,timeout=30)
+        assert len(results)==len(requests) and all(not row['failed'] for row in results)
+        def payload(index):
+            value=results[index]['result']
+            if isinstance(value.get('structuredContent'),dict):return value['structuredContent']
+            return json.loads(next(item['text'] for item in value['content'] if item.get('type')=='text'))
+        assert payload(1)['found'] and payload(1)['value']=='LOCAL_RUFLO_ROUNDTRIP_OK'
+        assert payload(2)['total']==1 and payload(3)['deleted'] is True and payload(4)['total']==0
+        assert 'forge-acceptance-flow' in json.dumps(payload(6))
+        assert 'FORGE_ACCEPTANCE_TASK_NO_PROVIDER' in json.dumps(payload(8))
+        assert payload(10)['maxAgents']==1 and payload(10)['agentCount']==0
+        assert payload(11)['total']==0  # No cloud/model agent execution claimed.
+
 
 def test_fixed_runtime_flags_survive_environment_filtering(tmp_path,monkeypatch):
     project=tmp_path/'project';project.mkdir();connection=RufloToolSession(project)

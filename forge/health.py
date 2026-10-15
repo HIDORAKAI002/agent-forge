@@ -79,7 +79,7 @@ def diagnose(project,*,ollama=False,isolation=False):
         boundary=probe_linux_isolation() if isolation else {'status':'installed-not-runtime-tested' if shutil.which('bwrap') else 'unavailable','action':'Use --probe-isolation to check kernel startup, then review project permissions.'}
         boundary['backend']='bubblewrap'
     elif os.name=='nt':
-        boundary={'backend':'native-windows-lpac','status':'experimental-not-release-ready','action':'Native console and permission-restoration acceptance gates remain unresolved. Enforced mode is disabled by default.'}
+        boundary={'backend':'native-windows-lpac','status':'experimental-not-release-ready','action':'Native token privileges, console and recovery acceptance remain unresolved. Enforced mode is disabled by default; no automatic elevation or unrestricted fallback.'}
     else:
         boundary={'backend':None,'status':'unsupported','action':'Enforced filesystem isolation is unavailable on this platform.'}
     local=probe_ollama() if ollama else {'status':'not-probed','installed_model_count':None,'action':'Use --probe-ollama for a local-only service check.'}

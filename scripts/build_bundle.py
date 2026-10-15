@@ -3,9 +3,9 @@ import argparse,hashlib,json,zipfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 TOP_FILES={'.gitignore','LICENSE','README.md','pyproject.toml','requirements-lock.txt'}
-SOURCE_DIRS={'forge','tests','scripts','.github','docs'}
+SOURCE_DIRS={'forge','tests','scripts','.github','docs','integrations'}
 EXCLUDE={'__pycache__','.pytest_cache','.git','.venv','node_modules','.agent-forge'}
-EXTENSIONS={'forge':{'.py'},'tests':{'.py'},'scripts':{'.py','.ps1','.sh'},'.github':{'.py','.yml','.yaml'},'docs':{'.md','.json','.txt','.svg'}}
+EXTENSIONS={'forge':{'.py'},'tests':{'.py'},'scripts':{'.py','.ps1','.sh'},'.github':{'.py','.yml','.yaml'},'docs':{'.md','.json','.txt','.svg'},'integrations':{'.json','.md'}}
 
 def collect():
     files=[]
@@ -16,6 +16,7 @@ def collect():
             for path in item.rglob('*'):
                 relative=path.relative_to(ROOT)
                 if any(part in EXCLUDE for part in relative.parts):continue
+                if item.name=='integrations' and (len(relative.parts)!=3 or relative.parts[1]!='ruflo' or path.name not in ('package.json','package-lock.json','README.md')):continue
                 if path.is_symlink() or any(parent.is_symlink() for parent in path.parents if parent!=ROOT):raise ValueError('Refusing linked bundle source')
                 if path.is_file() and path.suffix in EXTENSIONS[item.name]:files.append(path)
     return sorted(files)

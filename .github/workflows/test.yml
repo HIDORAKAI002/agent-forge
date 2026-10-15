@@ -78,7 +78,11 @@ jobs:
           node-version: '22'
       - run: sudo apt-get update && sudo apt-get install -y bubblewrap
       - run: python -m pip install -e '.[mcp,test]'
-      - run: npm install --prefix "$RUNNER_TEMP/ruflo" --no-audit --no-fund ruflo@3.56.9
+      - name: Install locked upstream runtime
+        run: |
+          mkdir -p "$RUNNER_TEMP/ruflo"
+          cp integrations/ruflo/package*.json "$RUNNER_TEMP/ruflo/"
+          npm ci --prefix "$RUNNER_TEMP/ruflo" --no-audit --no-fund
       - run: python .github/scripts/run_tests.py tests/test_integrations.py tests/test_ruflo_tools.py -k actual_ruflo
         env:
           FORGE_RUFLO_TESTS: '1'
