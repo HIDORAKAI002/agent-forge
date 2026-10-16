@@ -79,7 +79,10 @@ def main():
         while True:
             try:
                 message=controls.get_nowait()
-                if message['kind']=='input' and not stopping:child.write(message['text'])
+                if message['kind']=='input' and not stopping:
+                    text=message['text']
+                    if native and text in ('exit\r','exit\n','exit\r\n'):text='exit 0\r'
+                    child.write(text)
                 elif message['kind']=='resize' and not stopping:child.setwinsize(message['rows'],message['cols'])
                 elif message['kind']=='stop':
                     stopping=True

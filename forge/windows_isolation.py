@@ -334,9 +334,11 @@ def prepare_lpac_integrity(process,expected_sid):
         if not api.EqualSid(sid,expected):raise ValueError('Unexpected AppContainer identity; refusing to resume')
     try:
         verify()
-        medium=C.create_string_buffer(bytes(S.ConvertStringSidToSid('S-1-16-8192')))
+        # Verify token integrity; a brokered writable workspace is required if integrity is invalid.
         level=query(25);sid=C.cast(level,C.POINTER(SID_ATTRIBUTES))[0].Sid
-        if not api.EqualSid(sid,medium):
+        low=C.create_string_buffer(bytes(S.ConvertStringSidToSid('S-1-16-4096')))
+        medium=C.create_string_buffer(bytes(S.ConvertStringSidToSid('S-1-16-8192')))
+        if not api.EqualSid(sid,low) and not api.EqualSid(sid,medium):
             raise ValueError('Native AppContainer is not medium-integrity; a brokered writable workspace is required. Integrity raising and unrestricted fallback are refused')
     finally:kernel.CloseHandle(token)
 
@@ -344,7 +346,7 @@ def prepare_lpac_integrity(process,expected_sid):
 class NativeProcess:
     def __init__(self,argv,cwd,env,boundary,*,pty=False,rows=24,cols=90):
         import subprocess,win32security as S
-        self.k=C.WinDLL('kernel32',use_last_error=True);self.handles=[];self.pseudo=None;self.process=None;self.job=None;self.decoder=codecs.getincrementaldecoder('utf-8')('replace');self.closed=False;self.final_code=None
+        self.k=C.WinDLL('kernel32',use_last_error=True);self.handles=[];self.pseudo=None;self.process=None;self.job=None;self.decoder=codecs.getincrementaldecoder('utf-8')('replace');self.closed=False;self.final_code=None;self._attr_refs=[]
         k=self.k
         prototypes={
             'CreatePipe':([C.POINTER(W.HANDLE),C.POINTER(W.HANDLE),C.c_void_p,W.DWORD],W.BOOL),
@@ -370,10 +372,11 @@ class NativeProcess:
             if not k.CreatePipe(C.byref(r),C.byref(w),None,0):raise C.WinError(C.get_last_error())
             self.handles.extend([r.value,w.value]);return r.value,w.value
         child_input,self.input=pipe();self.output,child_output=pipe();self.error=None
-        si=SIEX();si.StartupInfo.cb=C.sizeof(si);attrs=4 if pty else 3
+        si=SIEX();si.StartupInfo.cb=C.sizeof(si);attrs=3
         size=C.c_size_t();k.InitializeProcThreadAttributeList(None,attrs,0,C.byref(size));buffer=C.create_string_buffer(size.value);si.lpAttributeList=C.cast(buffer,C.c_void_p)
         if not k.InitializeProcThreadAttributeList(si.lpAttributeList,attrs,0,C.byref(size)):raise C.WinError(C.get_last_error())
         def attribute(number,value):
+            self._attr_refs.append(value)
             if not k.UpdateProcThreadAttribute(si.lpAttributeList,0,number,C.byref(value),C.sizeof(value),None,None):raise OSError(C.get_last_error(),f'Native process attribute {number:#x} failed')
         sidbuf=C.create_string_buffer(bytes(boundary.sid));caps=CAPS(C.cast(sidbuf,C.c_void_p),None,0,0);cap_sid_buffers=[]
         if boundary.policy['network']:
@@ -382,21 +385,15 @@ class NativeProcess:
         try:
             attribute(0x20009,caps);attribute(0x2000F,W.DWORD(1)) # LPAC: opt out of ALL APPLICATION PACKAGES.
             if pty:
-                # ConPTY startup remains an explicit native acceptance gate.
-                # Do not impersonate a bootstrap child to work around failed
-                # console access: that experiment did not fix native output.
                 pseudo=W.HANDLE();result=k.CreatePseudoConsole(COORD(cols,rows),child_input,child_output,0,C.byref(pseudo))
                 if result<0:raise OSError(result,'CreatePseudoConsole failed')
                 self.pseudo=pseudo.value
-                # HPCON value is passed directly, NOT a pointer to the handle.
                 if not k.UpdateProcThreadAttribute(si.lpAttributeList,0,0x20016,C.c_void_p(self.pseudo),C.sizeof(W.HANDLE),None,None):raise OSError(C.get_last_error(),'Native pseudo-console attribute failed')
-                # Inherit ONLY the two approved console pipes, never arbitrary
-                # host handles. Restricted token console creation must retain
-                # the explicit pipe access used by its pseudo-console.
-                inherited=(W.HANDLE*2)(child_input,child_output)
-                for h in inherited:
-                    if not k.SetHandleInformation(h,1,1):raise C.WinError(C.get_last_error())
-                attribute(0x20002,inherited);inherit=True
+                si.StartupInfo.dwFlags=0x100
+                si.StartupInfo.hStdInput=None;si.StartupInfo.hStdOutput=None;si.StartupInfo.hStdError=None
+                k.CloseHandle(child_input);self.handles.remove(child_input)
+                k.CloseHandle(child_output);self.handles.remove(child_output)
+                inherit=False
             else:
                 self.error,child_error=pipe();si.StartupInfo.dwFlags=0x100;si.StartupInfo.hStdInput=child_input;si.StartupInfo.hStdOutput=child_output;si.StartupInfo.hStdError=child_error
                 inherited=(W.HANDLE*3)(child_input,child_output,child_error)
@@ -417,7 +414,7 @@ class NativeProcess:
             from .windows_broker import job_for
             _,self.job=job_for(self.pid)
             if k.ResumeThread(pi.hThread)==0xFFFFFFFF:raise C.WinError(C.get_last_error())
-            for h in (child_input,child_output,*([] if pty else [child_error])):
+            for h in ([] if pty else [child_input,child_output,child_error]):
                 k.CloseHandle(h);self.handles.remove(h)
         except BaseException:
             self.close();raise
@@ -431,6 +428,7 @@ class NativeProcess:
             if self.closed:raise EOFError
             if not self.k.PeekNamedPipe(handle,None,0,None,C.byref(available),None):raise EOFError
             if available.value:break
+            if not self.isalive():raise EOFError
             time.sleep(.01)
         count=min(count,available.value)
         buffer=C.create_string_buffer(count);done=W.DWORD()
