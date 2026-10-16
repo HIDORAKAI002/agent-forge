@@ -86,6 +86,11 @@ class TerminalSurface(Static):
         if not self.session or self.session.status != "running":
             return
         key = event.key
+        if key in ("ctrl+space", "ctrl+@", "ctrl+at") or event.character == "\x00":
+            self.app.action_composer()
+            event.prevent_default()
+            event.stop()
+            return
         sequence = KEY_BYTES.get(key)
         if sequence is None and key.startswith("ctrl+") and len(key) == 6:
             sequence = chr(ord(key[-1].lower()) & 31)
@@ -1099,6 +1104,7 @@ class ForgeApp(App):
             self.ui('#conversation').display=True
             self.ui('#terminal-view').display=False
             self.say(f"SETUP CHECK / no network requests or credentials read\nCore dependencies: {'ready' if report['ready_for']['core'] else 'incomplete'}\nMissing modules (optional features included): {missing}\nFilesystem backend: {report['isolation']['status']}\nLocal Ollama: not probed; use Models → Refresh.\nFor explicit loopback/kernel checks: agent-command doctor --full --probe-ollama --probe-isolation\nNo consumer Pro subscription is required for local models.")
+            self.action_composer()
         elif name=="/ruflo":
             operation,_,query=rest.partition(" ")
             if operation=="tools":self.action_tab("setup");self.setup_action("setup-ruflo-tools")
@@ -1158,6 +1164,7 @@ class ForgeApp(App):
                 self.action_tab("missions")
         elif name == "/tasks":
             self.action_tab("missions")
+            self.action_composer()
         elif name == "/run":
             self.confirm_run(rest.strip())
         elif name == "/approve":
@@ -1173,9 +1180,11 @@ class ForgeApp(App):
             kind, _, text = rest.partition(" ")
             self.runtime.store.remember(text, kind, "user", True)
             self.action_tab("memory")
+            self.action_composer()
         elif name == "/memory":
             self.memory_query = rest
             self.action_tab("memory")
+            self.action_composer()
         elif name == "/send":
             parts = rest.split(" ", 2)
             if len(parts) != 3:
@@ -1183,9 +1192,11 @@ class ForgeApp(App):
             self.runtime.store.send(*parts)
             self.mail_recipient = parts[1]
             self.action_tab("mail")
+            self.action_composer()
         elif name == "/inbox":
             self.mail_recipient = rest.strip() or "supervisor"
             self.action_tab("mail")
+            self.action_composer()
         elif name == "/ack":
             parts = rest.split()
             if len(parts) != 2:

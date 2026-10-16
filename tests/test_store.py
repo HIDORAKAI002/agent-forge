@@ -74,5 +74,8 @@ def test_concurrent_writers_keep_all_memories(project):
 def test_managed_symlinks_rejected(tmp_path):
     outside = tmp_path / "outside"; outside.mkdir()
     project = tmp_path / "project"; project.mkdir()
-    (project / ".agent-forge").symlink_to(outside, target_is_directory=True)
+    try:
+        (project / ".agent-forge").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("This host has no symlink privilege")
     with pytest.raises(ValueError, match="symbolic"): Store(project)

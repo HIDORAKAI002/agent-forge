@@ -17,18 +17,45 @@ Real Bubblewrap and Ruflo checks require their documented prerequisites and opt-
 
 ## Native Windows baseline (no WSL)
 
-Use a **normal, non-administrator** account, Python 3.11+, Git and Windows Terminal/PowerShell on a supported ConPTY Windows build. Start in a disposable checkout; do not run isolation experiments against your real work.
+Use a **normal, non-administrator** account, Python 3.11+, Git and Windows Terminal/PowerShell on a supported ConPTY Windows build. Verify your token is non-elevated before running:
 
 ```powershell
-git clone https://github.com/HIDORAKAI002/agent-forge.git
-cd agent-forge
-py -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[mcp,test]"
-.\.venv\Scripts\python.exe -m pytest -q tests/test_windows.py tests/test_store.py tests/test_health.py
-.\.venv\Scriptsorge.exe --project C:\path	o\disposable-project
+([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+# Must return False
 ```
 
-Report fresh installation, shell startup/output, resizing, Unicode/space paths, interrupt, normal exit and child cleanup. Confirm the UI does not claim native Windows enforcement is release-ready. The PowerShell installer is documented in [INSTALL_BUNDLE.md](INSTALL_BUNDLE.md).
+Ensure `FORGE_WINDOWS_ISOLATION_EXPERIMENTAL` is unset. Always test in a disposable directory to avoid modifying real work.
+
+### Developer checkout execution
+
+```powershell
+git clone https://github.com/rxmna8502/agent-forge.git
+cd agent-forge
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[mcp,credentials,test]"
+.\.venv\Scripts\python.exe -m pytest -q tests/test_windows.py tests/test_store.py tests/test_health.py
+.\.venv\Scripts\python.exe -I -m forge --project "C:\path\to\disposable-project"
+```
+
+### User-local installer execution
+
+For end-user testing without developer tools in PATH, run the managed installer into a disposable location:
+
+```powershell
+$env:FORGE_INSTALL_ROOT = "C:\path\to\disposable-install"
+$env:FORGE_BIN_ROOT = "C:\path\to\disposable-bin"
+$env:FORGE_CONFIGURE_PATH = "0"
+.\scripts\install.ps1
+& "$env:FORGE_BIN_ROOT\agent-command.cmd" --project "C:\path\to\disposable-project"
+```
+
+### Expected terminal behaviors
+- **Startup and output:** Welcome banner, prompt and terminal output render correctly.
+- **Resize:** Dynamic window resizing updates both rows and columns without display corruption.
+- **Unicode and spaces:** Paths containing spaces and non-ASCII characters open and save correctly.
+- **Ctrl+C interrupt:** Pressing Ctrl+C interrupts the active foreground command and cleanly returns control without killing the parent Forge session or workspace.
+- **Teardown and cleanup:** Exiting or stopping the session terminates all owned child processes (verified via Win32 Job Objects).
+- **Workspace lock:** Workspace lock is released cleanly upon exit.
 
 ### Advanced Windows isolation work: disposable VM only
 
