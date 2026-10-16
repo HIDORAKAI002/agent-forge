@@ -34,14 +34,17 @@ def test_report_missing_and_invalid_evidence_fails_closed(tmp_path):
 
 def test_workflow_preserves_all_acceptance_jobs_and_execution_records():
     workflow=(Path(__file__).parents[1]/'.github/workflows/test.yml').read_text()
-    for job in ('linux','windows','ruflo'):
+    for job in ('linux','windows','windows-experimental','ruflo'):
         assert '\n  '+job+':\n' in workflow
-    assert workflow.count('python .github/scripts/run_tests.py')==3
-    assert workflow.count('python .github/scripts/publish_ci.py')==3
-    assert workflow.count('fail-fast: false')==2
+    assert workflow.count('python .github/scripts/run_tests.py')==4
+    assert workflow.count('python .github/scripts/publish_ci.py')==4
+    assert workflow.count('fail-fast: false')==3
     assert 'tests/test_windows_isolation.py' in workflow
     assert "FORGE_RUFLO_FULL_TESTS: '1'" in workflow
     assert 'python .github/scripts/windows_security_probe.py' in workflow
+    assert 'scripts/validate_install.py' in workflow
+    assert 'windows-baseline-' in workflow
+    assert 'windows-isolation-' in workflow
 
 
 def test_ruflo_runtime_has_exact_dependency_and_integrity_lock():

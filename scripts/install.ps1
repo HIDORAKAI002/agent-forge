@@ -17,7 +17,7 @@ New-Item -ItemType Directory -Force $root,$bin | Out-Null
 $launcher = Join-Path $bin "$command.cmd"
 if ((Test-Path $launcher) -and -not ((Get-Content -Raw $launcher).StartsWith('REM Agent Forge managed launcher'))) { throw 'Refusing to overwrite unrelated command' }
 $source = Split-Path -Parent $PSScriptRoot
-$python = if (Get-Command python.exe -ErrorAction SilentlyContinue) { 'python.exe' } else { 'py' }
+$python = if ($env:FORGE_PYTHON) { $env:FORGE_PYTHON } elseif (Get-Command python.exe -ErrorAction SilentlyContinue) { 'python.exe' } else { 'py' }
 & $python -I -c 'import sys;assert sys.version_info >= (3,11), "Python 3.11+ required"'
 if ($LASTEXITCODE -ne 0) { throw 'Install Python 3.11+ first' }
 $venv = Join-Path $root 'venv'; SafePath $venv

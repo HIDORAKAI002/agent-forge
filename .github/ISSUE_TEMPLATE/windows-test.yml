@@ -9,20 +9,73 @@ body:
   id: environment
   attributes:
     label: Environment and exact commit
-    description: OS/build, architecture, Python, terminal and commit SHA.
+    description: OS/build, architecture, Python version/arch, terminal/host, shell, and git commit SHA.
+    placeholder: |
+      - Windows 11 Home 64-bit (Build 26300)
+      - Python 3.13.2 64-bit AMD64
+      - PowerShell 7.4 / Windows Terminal
+      - Git 2.53.0
+      - Commit SHA: f381e6a69ac2714ed5f9d0e185b6a112c687b779 (clean working tree)
+  validations:
+    required: true
+- type: dropdown
+  id: elevation
+  attributes:
+    label: Elevation and user privileges
+    description: Confirm execution is under a standard non-elevated user token.
+    options:
+      - "Standard user (non-elevated, IsInRole Administrator == False)"
+      - "Elevated / Administrator (invalid for standard-user acceptance)"
+  validations:
+    required: true
+- type: dropdown
+  id: isolation_mode
+  attributes:
+    label: Experimental isolation status
+    description: Experimental isolation must remain disabled for Task 2 baseline acceptance.
+    options:
+      - "Disabled (FORGE_WINDOWS_ISOLATION_EXPERIMENTAL unset)"
+      - "Enabled (FORGE_WINDOWS_ISOLATION_EXPERIMENTAL=1)"
+  validations:
+    required: true
+- type: dropdown
+  id: install_mode
+  attributes:
+    label: Installation mode
+    description: Select the installation mode tested.
+    options:
+      - "Developer checkout (.venv editable install)"
+      - "User-local installer (scripts/install.ps1 with FORGE_CONFIGURE_PATH=0)"
+      - "User-local installer (scripts/install.ps1 with user PATH configured)"
+  validations:
+    required: true
+- type: textarea
+  id: test_selection
+  attributes:
+    label: Test selection and execution command
+    description: Exact pytest or installer command executed.
+    placeholder: |
+      .\.venv\Scripts\python.exe -m pytest -v tests/test_windows.py tests/test_store.py tests/test_health.py
+  validations:
+    required: true
+- type: textarea
+  id: evidence_counts
+  attributes:
+    label: Test results and counts
+    description: Separate passed, failed, skipped, and error counts.
+    placeholder: |
+      - Passed:
+      - Failed:
+      - Skipped:
+      - Errors:
+      - Total duration:
   validations:
     required: true
 - type: textarea
   id: details
   attributes:
-    label: Reproduction or proposal
-    description: Expected vs actual behavior, commands, or proposed scope and acceptance
-      criteria.
+    label: Observations, logs, or reproduction details
+    description: Expected vs actual behavior, terminal interaction notes, or minimal reproduction.
   validations:
-    required: true
-- type: textarea
-  id: evidence
-  attributes:
-    label: Redacted evidence
-    description: Separate passed, failed and skipped counts. Do not treat discovery
-      or mocks as backend acceptance.
+    required: false
+

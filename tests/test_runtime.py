@@ -23,27 +23,44 @@ def test_real_pty_input_and_controlling_terminal(project):
     runtime = Runtime(project)
     try:
         session = runtime.launch("shell")
-        session.write("printf 'FORGE_PTY_OK\\n'\n")
-        wait(runtime, lambda: "FORGE_PTY_OK" in "\n".join(session.screen.display))
-        session.write("test -t 0 && test -r /dev/tty && printf 'CONTROLLING_TTY_OK\\n'\n")
-        wait(runtime, lambda: "CONTROLLING_TTY_OK" in "\n".join(session.screen.display))
-        session.resize(30, 100)
-        assert session.screen.columns == 100
-        session.write("exit\n")
-        wait(runtime, lambda: session.status == "exited")
-        assert session.exit_code == 0
-        with pytest.raises(ValueError): session.write("oops")
+        if os.name == "nt":
+            session.write("echo FORGE_PTY_OK\r\n")
+            wait(runtime, lambda: "FORGE_PTY_OK" in "\n".join(session.screen.display))
+            session.resize(30, 100)
+            assert session.screen.columns == 100
+            session.write("exit\r\n")
+            wait(runtime, lambda: session.status == "exited")
+            assert session.exit_code == 0
+            with pytest.raises(ValueError): session.write("oops")
+        else:
+            session.write("printf 'FORGE_PTY_OK\\n'\n")
+            wait(runtime, lambda: "FORGE_PTY_OK" in "\n".join(session.screen.display))
+            session.write("test -t 0 && test -r /dev/tty && printf 'CONTROLLING_TTY_OK\\n'\n")
+            wait(runtime, lambda: "CONTROLLING_TTY_OK" in "\n".join(session.screen.display))
+            session.resize(30, 100)
+            assert session.screen.columns == 100
+            session.write("exit\n")
+            wait(runtime, lambda: session.status == "exited")
+            assert session.exit_code == 0
+            with pytest.raises(ValueError): session.write("oops")
     finally: runtime.close()
 
 
 def test_parallel_fixture_agents_use_worktrees_and_shared_handoffs(project, tmp_path_factory):
     bin_dir = tmp_path_factory.mktemp("agents")
     for name in ("fixture-a", "fixture-b"):
-        script = bin_dir / name
-        script.write_text(f"#!{sys.executable}\nimport os\nfrom pathlib import Path\nfrom forge.store import Store\nPath('{name}.txt').write_text('fixture only')\ns=Store(os.environ['FORGE_PROJECT'])\ns.remember('Finished {name}', 'handoff', '{name}')\ns.close()\nprint('FIXTURE_DONE')\n")
-        script.chmod(0o755)
+        script = bin_dir / f"{name}.py"
+        script.write_text(f"import os\nfrom pathlib import Path\nfrom forge.store import Store\nPath('{name}.txt').write_text('fixture only')\ns=Store(os.environ['FORGE_PROJECT'])\ns.remember('Finished {name}', 'handoff', '{name}')\ns.close()\nprint('FIXTURE_DONE')\n")
     config = project / ".agent-forge"; config.mkdir()
-    (config / "profiles.json").write_text(json.dumps([dict(id=name, argv=[str(bin_dir / name)], task_argv=[str(bin_dir / name), "{prompt}"], tier="local") for name in ("fixture-a", "fixture-b")]))
+    (config / "profiles.json").write_text(json.dumps([
+        dict(
+            id=name,
+            argv=[sys.executable, str(bin_dir / f"{name}.py")],
+            task_argv=[sys.executable, str(bin_dir / f"{name}.py"), "{prompt}"],
+            tier="local"
+        )
+        for name in ("fixture-a", "fixture-b")
+    ]))
     runtime = Runtime(project)
     try:
         a = runtime.store.create_task("A", "Bounded fixture A", "fixture-a")
